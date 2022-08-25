@@ -186,3 +186,130 @@ Generate a report (not sure if this tool is avaible on Linux, but in Windows e.g
 ```
 C:\DIA-NN\1.8.1> dia-nn-plotter.exe C:\WORK\Projects\diann\results.stats.tsv C:\WORK\Projects\diann\results.tsv C:\WORK\Projects\diann\res.pdf
 ```
+
+
+# Gadi
+
+Assuming you are working in `/scratch/md01/DIANN`
+
+## Set up data dir
+
+/scratch/md01/DIANN
+
+run_diann.pbs
+run_msconvert.pbs
+convert.sh
+diann_v1.8.1_cv1.sif
+sp_human_160321.fasta
+Expanded_WIFF
+pwiz.sif
+
+## Convert the .wiff files to .mzML
+We will use nci-parallel to convert all the files. Run the convert.sh which reads all the input files in Expanded_WIFF to create the commands to individually convert each of the .wiff files to .mzML
+
+```
+mkdir Expanded_mzML
+for i in `ls -d Expanded_WIFF/*.wiff`;
+        do echo 'singularity run --env WINEDEBUG=-all -B /scratch/:/scratch /scratch/md01/DIANN/pwiz.sif wine msconvert '"$PWD"/${i}' --32 --filter "peakPicking vendor msLevel=1-" -o /scratch/md01/DIANN/Expanded_mzML/ --outfile '${i%%.*}'.mzML';
+done > commands.txt
+```
+
+In theory this should then be as easy as:
+```
+qsub run_msconvert.pbs
+```
+
+This pbs file using nci-parallel (a special implimentation of gnu-parallel) reads from the `commands.txt` file created above. Adjust as needed.
+
+```
+#!/bin/bash
+#PBS -q normal
+#PBS -l ncpus=288
+#PBS -l walltime=04:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/md01
+#PBS -P md01
+module load nci-parallel/1.0.0a
+export ncores_per_task=1
+export ncores_per_numanode=12
+
+module load singularity
+pwd
+mkdir -p /scratch/md01/DIANN/tmp
+mkdir -p /scratch/md01/DIANN/cache
+export SINGULARITY_TMPDIR=/scratch/md01/DIANN/tmp
+export SINGULARITY_CACHEDIR=/scratch/md01/DIANN/cache
+mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} nci-parallel --input-file /scratch/md01/DIANN/commands.txt --timeout 10000
+```
+
+But there are some issues with the singularity container. Specifically the wine folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
+NCI help also suggested the following:
+
+```
+ORIGINAL_PREFIX=${WINEPREFIX}
+WINEPREFIX=$(mktemp -d wineprefix)
+export WINEPREFIX
+
+for file in ${ORIGINAL_PREFIX}/*
+do
+  ln -sT ${file} ${WINEPREFIX}/$(basename ${file})
+done
+```
+
+This step should take around 2 hr 15 min with 288 cpus to convert 322 files. 370 CPU hours.
+
+
+## Make configuration files
+
+Depending on how you partition the files into batches this may change. e.g. we used a simpler method for RONIN steps above. Here we are batching them in 14 batches grouped by a consistent number of files (23 per batch).
+
+```
+ls -v Expanded_mzML/ | head -n 23 > dinput_1.list
+ls -v Expanded_mzML/ | tail -n +24 | head -n 23 > dinput_2.list
+ls -v Expanded_mzML/ | tail -n +47 | head -n 23 > dinput_3.list
+ls -v Expanded_mzML/ | tail -n +70 | head -n 23 > dinput_4.list
+ls -v Expanded_mzML/ | tail -n +93 | head -n 23 > dinput_5.list
+ls -v Expanded_mzML/ | tail -n +116 | head -n 23 > dinput_6.list
+ls -v Expanded_mzML/ | tail -n +139 | head -n 23 > dinput_7.list
+ls -v Expanded_mzML/ | tail -n +162 | head -n 23 > dinput_8.list
+ls -v Expanded_mzML/ | tail -n +185 | head -n 23 > dinput_9.list
+ls -v Expanded_mzML/ | tail -n +208 | head -n 23 > dinput_10.list
+ls -v Expanded_mzML/ | tail -n +231 | head -n 23 > dinput_11.list
+ls -v Expanded_mzML/ | tail -n +254 | head -n 23 > dinput_12.list
+ls -v Expanded_mzML/ | tail -n +277 | head -n 23 > dinput_13.list
+ls -v Expanded_mzML/ | tail -n +300 | head -n 23 > dinput_14.list
+
+for i in {1..14}; do sed -e 's#^#--f /scratch/md01/DIANN/Expanded_mzML/#' dinput_${i}.list > /scratch/md01/DIANN/scripts/dinput_${i}.txt; done
+cd scripts
+for i in {1..14}; do sed -i '1i--use-quant' dinput_${i}.txt; done
+for i in {1..14}; do sed -i 's#$# \\#'  dinput_${i}.txt; done
+```
+
+## Run DiaNN
+
+Unlike Slurm on Ronin, Gadi does not have arrays, so we can pass the script name on the command line to use as a variable as
+```
+qsub -N <1-14> run_diann.pbs
+```
+
+```
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l ncpus=48
+#PBS -l walltime=24:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/md01
+#PBS -P md01
+module load singularity
+export PROJFOLDER=/scratch/md01/DIANN
+mkdir -p ${PROJFOLDER}/out
+/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
+        "diann `cat ${PROJFOLDER}/scripts/dconfig.txt` \
+        --fasta ${PROJFOLDER}/sp_human_160321.fasta \
+        `cat ${PROJFOLDER}/scripts/dinput_${PBS_JOBNAME}.txt` \
+        --out ${PROJFOLDER}/out/Library_Free_Search_SP_HUMAN_061221_WD_EXP1_${PBS_JOBNAME}.tsv \
+        --out-lib ${PROJFOLDER}/out/Library_Free_Search_SP_HUMAN_LIB_061221_WD_EXP1_${PBS_JOBNAME}.tsv"
+```
