@@ -190,22 +190,36 @@ C:\DIA-NN\1.8.1> dia-nn-plotter.exe C:\WORK\Projects\diann\results.stats.tsv C:\
 
 # Gadi
 
-Assuming you are working in `/scratch/md01/DIANN`
+Assuming you are working in `/scratch/md01/DIANN`.
 
-## Set up data dir
 
-/scratch/md01/DIANN
+## 1. Set up data dir
 
+Contents of `/scratch/md01/DIANN`:
+
+Singularity containers:
+```
+diann_v1.8.1_cv1.sif
+pwiz.sif
+```
+
+fasta data file and folder containing all sequential `.wiff` and accompanying `.scan` files that will be analysed.
+```
+sp_human_160321.fasta
+Expanded_WIFF
+```
+
+Scripts for running workflows:
+```
 run_diann.pbs
 run_msconvert.pbs
 convert.sh
-diann_v1.8.1_cv1.sif
-sp_human_160321.fasta
-Expanded_WIFF
-pwiz.sif
+```
 
-## Convert the .wiff files to .mzML
-We will use nci-parallel to convert all the files. Run the convert.sh which reads all the input files in Expanded_WIFF to create the commands to individually convert each of the .wiff files to .mzML
+
+## 2. Convert the .wiff files to .mzML
+
+We will use `nci-parallel` to convert all the files in parallel. Run the `convert.sh` script which reads all the input files in the `Expanded_WIFF` directory to create the commands read by `nci-parallel` to convert each of the `.wiff` files to `.mzML`. The script looks something like this, change hardcoded directories as needed:
 
 ```
 mkdir Expanded_mzML
@@ -214,13 +228,7 @@ for i in `ls -d Expanded_WIFF/*.wiff`;
 done > commands.txt
 ```
 
-In theory this should then be as easy as:
-```
-qsub run_msconvert.pbs
-```
-
 This pbs file using nci-parallel (a special implimentation of gnu-parallel) reads from the `commands.txt` file created above. Adjust as needed.
-
 ```
 #!/bin/bash
 #PBS -q normal
@@ -230,6 +238,7 @@ This pbs file using nci-parallel (a special implimentation of gnu-parallel) read
 #PBS -l wd
 #PBS -l storage=scratch/md01
 #PBS -P md01
+
 module load nci-parallel/1.0.0a
 export ncores_per_task=1
 export ncores_per_numanode=12
@@ -243,8 +252,16 @@ export SINGULARITY_CACHEDIR=/scratch/md01/DIANN/cache
 mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} nci-parallel --input-file /scratch/md01/DIANN/commands.txt --timeout 10000
 ```
 
-But there are some issues with the singularity container. Specifically the wine folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
-NCI help also suggested the following:
+Submit to the queue.
+```
+qsub run_msconvert.pbs
+```
+
+Converstion should take between 1-2 hours per file per cpu. Using 288 cpus to convert 322 files took a walltime of 2 hr 15 min (or 370 CPU hours).
+
+
+Note: there were some issues with the singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
+NCI help also suggested the following I have yet to try (because there are a looooot of files that need linking):
 
 ```
 ORIGINAL_PREFIX=${WINEPREFIX}
@@ -257,14 +274,15 @@ do
 done
 ```
 
-This step should take around 2 hr 15 min with 288 cpus to convert 322 files. 370 CPU hours.
 
 
-## Make configuration files
 
-Depending on how you partition the files into batches this may change. e.g. we used a simpler method for RONIN steps above. Here we are batching them in 14 batches grouped by a consistent number of files (23 per batch).
+## 3. Make file batches and configuration files
+
+Depending on how you partition the files into batches this may change. e.g. we used a simpler method for RONIN steps above. Here we are batching them in 14 batches grouped by a consistent number of sequential files (322 total files, 23 per batch = 14 batches). 
 
 ```
+#Group the filenames into batches
 ls -v Expanded_mzML/ | head -n 23 > dinput_1.list
 ls -v Expanded_mzML/ | tail -n +24 | head -n 23 > dinput_2.list
 ls -v Expanded_mzML/ | tail -n +47 | head -n 23 > dinput_3.list
@@ -280,18 +298,23 @@ ls -v Expanded_mzML/ | tail -n +254 | head -n 23 > dinput_12.list
 ls -v Expanded_mzML/ | tail -n +277 | head -n 23 > dinput_13.list
 ls -v Expanded_mzML/ | tail -n +300 | head -n 23 > dinput_14.list
 
+#Add "--f" to the start of each line and push to the actual config files
 for i in {1..14}; do sed -e 's#^#--f /scratch/md01/DIANN/Expanded_mzML/#' dinput_${i}.list > /scratch/md01/DIANN/scripts/dinput_${i}.txt; done
 cd scripts
+
+#Add "--use-quant" to the top of the file
 for i in {1..14}; do sed -i '1i--use-quant' dinput_${i}.txt; done
+
+#Add "\" to the end of each line
 for i in {1..14}; do sed -i 's#$# \\#'  dinput_${i}.txt; done
 ```
 
-## Run DiaNN
+And the `diann.cfg` is almost the same as RONIN version above. (adjust as appropriate for your experiment):
+>```--lib --threads 48 --verbose 1  --qvalue 0.01 --matrices --gen-spec-lib --predictor --prosit --fasta-search --min-fr-mz 150 --max-fr-mz 1500 --met-excision --cut K*,R* --missed-cleavages 1 --min-pep-len 7 --max-pep-len 30 --min-pr-mz 400 --max-pr-mz 900 --min-pr-charge 1 --max-pr-charge 4 --unimod4 --var-mods 1 --var-mod UniMod:1,42.010565,*n --monitor-mod UniMod:1 --double-search --reanalyse --smart-profiling --peak-center```
 
-Unlike Slurm on Ronin, Gadi does not have arrays, so we can pass the script name on the command line to use as a variable as
-```
-qsub -N <1-14> run_diann.pbs
-```
+## 4. Run DiaNN
+
+Adjust the `run_diann.pbs` file as needed
 
 ```
 #!/bin/bash
@@ -312,4 +335,9 @@ mkdir -p ${PROJFOLDER}/out
         `cat ${PROJFOLDER}/scripts/dinput_${PBS_JOBNAME}.txt` \
         --out ${PROJFOLDER}/out/Library_Free_Search_SP_HUMAN_061221_WD_EXP1_${PBS_JOBNAME}.tsv \
         --out-lib ${PROJFOLDER}/out/Library_Free_Search_SP_HUMAN_LIB_061221_WD_EXP1_${PBS_JOBNAME}.tsv"
+```
+
+Unlike Slurm on Ronin, Gadi does not have arrays, so we can pass the script name on the command line to use as a variable and execute multiple jobs:
+```
+qsub -N <1-14> run_diann.pbs
 ```
