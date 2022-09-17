@@ -138,13 +138,30 @@ export NTHREADS=24
         --threads ${NTHREADS} --fasta ${FASTAFILE} \
         --out ${OUTDIR}/report_${PBS_JOBNAME}.tsv --out-lib  ${OUTDIR}/lib_${PBS_JOBNAME}.lib"
 ```
-Submit with ```job1=`qsub run_STEP1.pbs````
+Submit with `` job1=`qsub run_STEP1.pbs` ``
 
 ### run_STEP2.pbs
 
+Make the list of commands to be run with nci-parallel:
+```
+export PROJFOLDER=/scratch/md01/DIANN
+export DATADIR=${PROJFOLDER}/Expanded_mzML
+export OUTDIR=${PROJFOLDER}/out_par
+export SPECLIB=${OUTDIR}/lib_par_STEP1.predicted.speclib
+export NTHREADS=6
+
+for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; 
+do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c \
+        "diann --verbose 3 --individual-windows --min-corr 2.0 --corr-diff 1.0 \
+        --quick-mass-acc --individual-mass-acc --time-corr-only \
+        --lib '${SPECLIB}' --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' \
+        --out '${OUTDIR}'/report_STEP2.tsv --out-lib  '${OUTDIR}'/lib_STEP2"'; 
+        done > commands_STEP2.txt
+```
+
+Make the pbs submission script
 ```
 #!/bin/bash
-
 #PBS -q normal
 #PBS -l ncpus=288
 #PBS -l walltime=12:00:00
@@ -165,9 +182,104 @@ export PROJFOLDER=/scratch/md01/DIANN
 mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} \
   nci-parallel --input-file ${PROJFOLDER}/commands_STEP2.txt --timeout 10000
 ```
-Submit with ```qsub -W depend=afterok:${job1} run_STEP1.pbs```
+Submit with `` job2=`qsub -W depend=afterok:${job1} run_STEP2.pbs` ``
 
+### run_STEP3.pbs
+```
+#!/bin/bash
+#PBS -q normal
+#PBS -l ncpus=48
+#PBS -l walltime=48:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/md01
+#PBS -P md01
+#PBS -j oe
+#PBS -N par_STEP3
 
+module load singularity
 
+export PROJFOLDER=/scratch/md01/DIANN
+export OUTDIR=${PROJFOLDER}/out_par
+export NTHREADS=$(expr ${PBS_NCPUS} + ${PBS_NCPUS})
+export SPECLIB=${OUTDIR}/lib_par_STEP1.predicted.speclib
+export FILELIST=${PROJFOLDER}/scripts/filelist.txt
 
+/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
+        "diann `cat ${FILELIST}` --lib ${SPECLIB} --threads ${NTHREADS} --out ${OUTDIR}/report_${PBS_JOBNAME}.tsv --out-lib ${OUTDIR}/emp_lib.tsv \
+        --verbose 3 --rt-profiling --use-quant --quick-mass-acc --individual-mass-acc --individual-windows --gen-spec-lib"
+```
+Submit with `` job3=`qsub -W depend=afterok:${job2} run_STEP3.pbs` ``
+
+### run_STEP4.pbs
+
+Make the list of commands to be run with nci-parallel:
+```
+export PROJFOLDER=/scratch/md01/DIANN
+export DATADIR=${PROJFOLDER}/Expanded_mzML
+export OUTDIR=${PROJFOLDER}/out_par
+export NTHREADS=6
+
+for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; 
+do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c \
+        "diann --verbose 3 --mass-acc 13 --mass-acc-ms1 8 --window 8 --no-ifs-removal --no-main-report --no-prot-inf \
+        --lib '${OUTDIR}'/emp_lib.tsv --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv"';
+        done > commands_STEP4.txt
+```
+
+Make the pbs job submission script
+```
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l ncpus=288
+#PBS -l walltime=12:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/md01
+#PBS -P md01
+#PBS -j oe
+#PBS -N par_STEP4
+
+module load nci-parallel/1.0.0a
+module load singularity
+
+export ncores_per_task=6
+export ncores_per_numanode=12
+export PROJFOLDER=/scratch/md01/DIANN
+
+mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} \
+        nci-parallel --input-file ${PROJFOLDER}/commands_STEP4.txt --timeout 10000
+```
+
+Submit with `` job4=`qsub -W depend=afterok:${job3} run_STEP4.pbs` ``
+
+### run_STEP5.pbs
+```
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l ncpus=48
+#PBS -l walltime=48:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/md01
+#PBS -P md01
+#PBS -j oe
+#PBS -N par_STEP5
+
+module load singularity
+
+export PROJFOLDER=/scratch/md01/DIANN
+export DATADIR=${PROJFOLDER}/Expanded_mzML
+export OUTDIR=${PROJFOLDER}/out_par
+export NTHREADS=$(expr ${PBS_NCPUS} + ${PBS_NCPUS})
+export SPECLIB=${OUTDIR}/emp_lib.tsv
+
+/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
+        "diann `cat ${PROJFOLDER}/scripts/filelist.txt` --lib ${OUTDIR}/emp_lib.tsv --fasta ${FASTAFILE}  --threads ${NTHREADS}  --out ${OUTDIR}/diann_report.tsv \
+        --verbose 3 --individual-windows --quick-mass-acc --individual-mass-acc --relaxed-prot-inf --pg-level 2 --use-quant --matrices"
+```
+
+Submit with `` job5=`qsub -W depend=afterok:${job4} run_STEP5.pbs` ``
 
