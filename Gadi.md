@@ -96,8 +96,8 @@ done
 #Group the filenames into batches
 ls -v Expanded_mzML/ > filelist.list
 
-#Add "--f" to the start of each line and push to the actual config files
-sed -e 's#^#--f /scratch/md01/DIANN/Expanded_mzML/#' filelist.list > /scratch/md01/DIANN/scripts/filelist.txt; done
+#Add "--f" to the start of each line and the path and push to the actual config files
+sed -e 's#^#--f /scratch/md01/DIANN/Expanded_mzML/#' filelist.list > /scratch/md01/DIANN/scripts/filelist.txt
 
 #Add "\" to the end of each line
 sed -i 's#$# \\#'  /scratch/md01/DIANN/scripts/filelist.txt
