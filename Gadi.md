@@ -150,13 +150,7 @@ export OUTDIR=${PROJFOLDER}/out_par
 export SPECLIB=${OUTDIR}/lib_par_STEP1.predicted.speclib
 export NTHREADS=6
 
-for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; 
-do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c \
-        "diann --verbose 3 --individual-windows --min-corr 2.0 --corr-diff 1.0 \
-        --quick-mass-acc --individual-mass-acc --time-corr-only \
-        --lib '${SPECLIB}' --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' \
-        --out '${OUTDIR}'/report_STEP2.tsv --out-lib  '${OUTDIR}'/lib_STEP2"'; 
-        done > commands_STEP2.txt
+for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c "diann --verbose 3 --individual-windows --min-corr 2.0 --corr-diff 1.0 --quick-mass-acc --individual-mass-acc --time-corr-only --lib '${SPECLIB}' --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv --out-lib  '${OUTDIR}'/lib_STEP2"'; done > commands_STEP2.txt
 ```
 
 Make the pbs submission script
@@ -221,10 +215,7 @@ export OUTDIR=${PROJFOLDER}/out_par
 export NTHREADS=6
 
 for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; 
-do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c \
-        "diann --verbose 3 --mass-acc 13 --mass-acc-ms1 8 --window 8 --no-ifs-removal --no-main-report --no-prot-inf \
-        --lib '${OUTDIR}'/emp_lib.tsv --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv"';
-        done > commands_STEP4.txt
+do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c "diann --verbose 3 --mass-acc 12 --mass-acc-ms1 8 --window 8 --no-ifs-removal --no-main-report --relaxed-prot-inf --pg-level 2 --lib '${OUTDIR}'/emp_lib.tsv --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv"'; done > commands_STEP4.txt
 ```
 
 Make the pbs job submission script
@@ -281,5 +272,5 @@ export SPECLIB=${OUTDIR}/emp_lib.tsv
         --verbose 3 --individual-windows --quick-mass-acc --individual-mass-acc --relaxed-prot-inf --pg-level 2 --use-quant --matrices"
 ```
 
-Submit with `` job5=`qsub -W depend=afterok:${job4} run_STEP5.pbs` ``
+Submit with `` qsub -W depend=afterok:${job4} run_STEP5.pbs ``
 
