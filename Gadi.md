@@ -2,6 +2,8 @@
 
 Assuming you are working in `/scratch/md01/DIANN`.
 
+Trying to replicate https://github.com/bigbio/quantms/issues/164#issue-1217161046
+
 ## 1. Set up data dir
 
 Contents of `/scratch/md01/DIANN`:
