@@ -75,14 +75,35 @@ qsub run_msconvert.pbs
 
 Converstion should take between 1-2 hours per file per cpu. Using 288 cpus to convert 322 files took a walltime of 2 hr 15 min (or 370 CPU hours).
 
+Note: there were some issues with the singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
 
-Note: there were some issues with the singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
-NCI help also suggested the following I have yet to try (because there are a looooot of files that need linking):
+This is the extent of the singularity recipe file (with the very minimal changes from the original docker file):
+```
+    Bootstrap: docker
+    From: chambm/pwiz-skyline-i-agree-to-the-vendor-licenses
+    %post
+
+    #Get uid from "id -u `whoami`" on Gadi
+    useradd -u 6253 npb562
+    chown -Rf --no-preserve-root cp2596 /wineprefix64
+```
+
+Built on a local machine with:
+```
+    sudo singularity build pwiz.sif pwiz.build
+```
+
+I tried two other approaches for more general image, but did not fix root issue on Gadi.
 
 ```
-ORIGINAL_PREFIX=${WINEPREFIX}
-WINEPREFIX=$(mktemp -d wineprefix)
-export WINEPREFIX
+# Approach 2
+chown -Rf --no-preserve-root galaxy_docker /wineprefix64
+chgrp -Rf `whoami` /wineprefix64
+
+# Approach 3
+ORIGINAL_PREFIX=/wineprefix64
+WINEPREFIX=/wineuser
+mkdir -p $WINEPREFIX
 
 for file in ${ORIGINAL_PREFIX}/*
 do
