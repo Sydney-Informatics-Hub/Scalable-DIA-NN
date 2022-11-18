@@ -132,6 +132,8 @@ Adjust the DiaNN configuration option in each run_STEP?.pbs as appropriate for y
 
 ### run_STEP1.pbs
 
+Generate an in silico predicted spectral library from a FASTA sequence database (in Uniprot format). This step does not require any raw files. It should only be carried out once per FASTA.
+
 ```
 #!/bin/bash
 #PBS -q normal
@@ -163,7 +165,11 @@ export NTHREADS=24
 ```
 Submit with `` job1=`qsub run_STEP1.pbs` ``
 
+Output: **.predicted.speclib** file containing an in silico library; log file.
+
 ### run_STEP2.pbs
+
+Preliminary analysis of individual raw files. Analyse each run separately with the in silico library generated in step 1. The mass accuracies and the scan window settings in DIA-NN should be either fixed or left automatic. In the latter case, use `--individual-mass-acc` and `--individual-windows`. If mass accuracies are automatic, also supply `--quick-mass-acc`. Specify a folder with `--temp` where .quant files will be saved to.
 
 Make the list of commands to be run with nci-parallel:
 ```
@@ -201,7 +207,12 @@ mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/nc
 ```
 Submit with `` job2=`qsub -W depend=afterok:${job1} run_STEP2.pbs` ``
 
+Output: *.quant file* for each raw file that contains IDs and quant info; log file.
+
 ### run_STEP3.pbs
+
+Assemble an empirical spectral library from the .quant files. For this all .quant files must be accessible for the given instance of DIA-NN. No access to the raw data is required, if DIA-NN is supplied with the --rt-profiling command. This corresponds to "IDs, RT & IM profiling" mode of library generation. To execute this step, run DIA-NN with the --use-quant command, listing all raw files with --f though (but they don't need to be accessible, these file names are only used to infer .quant files file names). The location of .quant files can be specified with --temp. If the mass accuracies and the scan window settings in DIA-NN were automatic during Step 2, please use --individual-mass-acc and/or --individual-windows, respectively.
+
 ```
 #!/bin/bash
 #PBS -q normal
@@ -227,6 +238,8 @@ export FILELIST=${PROJFOLDER}/scripts/filelist.txt
         --verbose 3 --rt-profiling --use-quant --quick-mass-acc --individual-mass-acc --individual-windows --gen-spec-lib"
 ```
 Submit with `` job3=`qsub -W depend=afterok:${job2} run_STEP3.pbs` ``
+
+Output: *.tsv* spectral library.
 
 ### run_STEP4.pbs
 
