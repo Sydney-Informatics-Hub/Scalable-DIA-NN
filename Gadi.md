@@ -166,6 +166,8 @@ export NTHREADS=24
 Submit with `` job1=`qsub run_STEP1.pbs` ``
 
 Output: **.predicted.speclib** file containing an in silico library; log file.
+`lib.predicted.speclib` and `lib.log.txt` from DiaNN and `par_STEP1.o????????` log from GADI.
+
 
 ### run_STEP2.pbs
 
