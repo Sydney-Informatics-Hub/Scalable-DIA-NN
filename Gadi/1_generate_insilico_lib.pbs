@@ -1,0 +1,35 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -l ncpus=8
+#PBS -l walltime=48:00:00
+#PBS -l mem=32GB
+#PBS -l wd
+#PBS -l storage=scratch/xh27
+#PBS -P md01
+#PBS -N 1_diann
+#PBS -o ./Logs/1_gen_insilico_lib.o
+#PBS -e ./Logs/1_gen_insilico_lib.e
+
+module load singularity
+
+cd ${PBS_O_WORKDIR}
+
+# CHANGE VARIBALES/PARAMETERS OF COMMAND BELOW
+export fasta=mouse_proteome.fasta
+
+singularity exec biocontainers-diann-v1.8.1_cv1.img \
+        diann \
+	--fasta ${fasta} \
+	--fasta-search \
+	--missed-cleavages 2 \
+	--min-pep-len 6 \
+	--max-pep-len 40 \
+	--min-pr-charge 2 \
+	--max-pr-charge 4 \
+	--var-mods 3 \
+	--threads ${PBS_NCPUS} \
+	--predictor \
+	--verbose 4 \
+	--gen-spec-lib \
+	--out-lib $(basename ${fasta%%.*}).lib \
+        --out $(basename ${fasta%%.*}).report.tsv

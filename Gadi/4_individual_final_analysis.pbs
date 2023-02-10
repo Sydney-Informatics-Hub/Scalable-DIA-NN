@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Allow 8 CPU, 16GB MEM, walltime=00:19:04 
+
+#PBS -q normal
+#PBS -l ncpus=48
+#PBS -l walltime=04:00:00
+#PBS -l mem=190GB
+#PBS -l wd
+#PBS -l storage=scratch/xh27+scratch/er01
+#PBS -P md01
+#PBS -N 4_diann
+#PBS -o ./Logs/4_individual_final_analysis.o
+#PBS -e ./Logs/4_individual_final_analysis.e
+
+cd ${PBS_O_WORKDIR}
+
+set -e
+
+# NCPUS = CPUs per task
+NCPUS=1
+
+#########################################################
+# Do not edit below this line
+#########################################################
+
+module load nci-parallel/1.0.0a
+module load singularity
+
+INPUTS=./Inputs/4_individual_final_analysis.txt
+export SINGULARITY_TMPDIR=./tmp
+export SINGULARITY_CACHEDIR=./cache
+
+mkdir -p ${SINGULARITY_TMPDIR} ${SINGULARITY_CACHEDIR}
+
+# SCRIPT
+SCRIPT=./4_individual_final_analysis.sh
+
+M=$(( PBS_NCI_NCPUS_PER_NODE / NCPUS )) #tasks per node
+
+sed "s|^|${SCRIPT} |" ${INPUTS} > ${PBS_JOBFS}/input-file
+
+mpirun --np $((M * PBS_NCPUS / PBS_NCI_NCPUS_PER_NODE)) \
+        --map-by node:PE=${NCPUS} \
+        nci-parallel \
+        --verbose \
+        --input-file ${PBS_JOBFS}/input-file
+

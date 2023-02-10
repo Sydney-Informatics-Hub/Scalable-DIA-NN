@@ -1,81 +1,69 @@
 # DiaNN on NCI Gadi
 
-Assuming you are working in `/scratch/md01/DIANN`.
+<p align="center">
+:wrench: This pipeline is currently under development :wrench:
+</p>
 
-Trying to replicate https://github.com/bigbio/quantms/issues/164#issue-1217161046
+- [Description](#description)
+- [Set up & installation](#set-up--installation)
+- [Required inputs](#required-inputs)
+    - [Converting wiff to mzML](#converting-wiff-to-mzml)
+- [User guide](#user-guide)
+    - [Step 1. Generate insilico spectral library](#step-1-generate-insilico-spectral-library)
+    - [Step 2. Preliminary analysis (scalable)](#step-2-preliminary-analysis-scalable)
+    - [Step 3. Assemble empirical spectral library](#step-3-assemble-empirical-spectral-library)
+    - [Step 4. Individual file analysis (scalable)](#step-4-individual-file-analysis-scalable)
+    - [Step 5. Summarise](#step-5-summarise)
+- [Benchmarks](#benchmarks)
 
-## 1. Set up data dir
+## Description
+---
 
-Contents of `/scratch/md01/DIANN`:
+This workflow implements the Linux/CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion on the [National Computational Infrastructure's Gadi HPC](https://nci.org.au/news-events/events/introduction-gadi-4#:~:text=Gadi%20is%20Australia's%20most%20powerful,designing%20molecules%20to%20astrophysical%20modelling). DIA-NN is a tool that performs data processing and analysis for data-independant acquistion (DIA) proteomics data and was originally developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
-Singularity containers:
-```
-diann_v1.8.1_cv1.sif
-pwiz.sif
-```
+## Set up & installation
+---
 
-fasta data file and folder containing all sequential `.wiff` and accompanying `.scan` files that will be analysed.
-```
-sp_human_160321.fasta
-Expanded_WIFF
-```
-
-Scripts for running workflows:
-```
-run_STEP1.pbs
-run_STEP2.pbs
-run_STEP3.pbs
-run_STEP4.pbs
-run_STEP5.pbs
-generate_commands.sh
-run_msconvert.pbs
-convert.sh
-```
-
-
-## 2. Convert the .wiff files to .mzML
-
-We will use `nci-parallel` to convert all the files in parallel. Run the `convert.sh` script which reads all the input files in the `Expanded_WIFF` directory to create the commands read by `nci-parallel` to convert each of the `.wiff` files to `.mzML`. The script looks something like this, change hardcoded directories as needed:
+You must have a project and allocation on NCI Gadi to run this workflow. Once you have logged onto Gadi, navigate to your working directory, e.g: 
 
 ```
-mkdir Expanded_mzML
-for i in `ls -d Expanded_WIFF/*.wiff`;
-        do echo 'singularity run --env WINEDEBUG=-all -B /scratch/:/scratch /scratch/md01/DIANN/pwiz.sif wine msconvert '"$PWD"/${i}' --32 --filter "peakPicking vendor msLevel=1-" -o /scratch/md01/DIANN/Expanded_mzML/ --outfile '${i%%.*}'.mzML';
-done > commands.txt
+cd /scratch/xh27/tc6463
 ```
 
-This pbs file using nci-parallel (a special implimentation of gnu-parallel) reads from the `commands.txt` file created above. Adjust as needed.
+Clone this repository and change into the `Gadi` directory:
+
 ```
-#!/bin/bash
-#PBS -q normal
-#PBS -l ncpus=288
-#PBS -l walltime=04:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
+git clone https://github.com/Sydney-Informatics-Hub/DiaNN.git
+cd Gadi
+```
 
-module load nci-parallel/1.0.0a
-export ncores_per_task=1
-export ncores_per_numanode=12
+`pwd` should resemble the path `/scratch/xh27/tc6463/Gadi`. **All scripts and containers should be in this directory. Run all commands and scripts here.**
 
+This workflow uses singularity to execute tools required for this workflow. Pull the DIA-NN singularity container from the biocontainers repository:
+
+```
 module load singularity
-pwd
-mkdir -p /scratch/md01/DIANN/tmp
-mkdir -p /scratch/md01/DIANN/cache
-export SINGULARITY_TMPDIR=/scratch/md01/DIANN/tmp
-export SINGULARITY_CACHEDIR=/scratch/md01/DIANN/cache
-mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} nci-parallel --input-file /scratch/md01/DIANN/commands.txt --timeout 10000
+singularity pull docker://biocontainers/diann:v1.8.1_cv1
 ```
 
-Submit to the queue.
-```
-qsub run_msconvert.pbs
-```
+You should now have the singularity container `biocontainers-diann-v1.8.1_cv1.img` and the `*.pbs`, `*.sh` scripts to run this workflow on Gadi. 
 
-Converstion should take between 1-2 hours per file per cpu. Using 288 cpus to convert 322 files took a walltime of 2 hr 15 min (or 370 CPU hours).
+## Required inputs 
+---
 
-Note: there were some issues with the singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. To overcome this I did a hack to rebuild the container. Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
+### Proteome FASTA
+
+Transfer your Uniprot formatted FASTA file to the working directory, e.g. `/scratch/xh27/tc6463/Gadi`
+
+### Prepare mzML input data
+
+The Linux version of DIA-NN supports `*.mzML` file formats. All `*.mzML` data should be transferred to a directory within `Gadi`, e.g. `/scratch/xh27/tc6463/Gadi/Expanded_mzML`. Sciex `*.wiff` data must be converted to `*.mzML` format (see below). 
+
+#### Converting wiff to mzML
+
+##### Obtain ProteoWizard
+
+[DIA-NN recommends ProteoWizard](https://github.com/vdemichev/DiaNN#raw-data-formats) for `*.wiff` file support. There were some issues with this singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. You will need to rebuild the container for your user ID on Gadi on a compute your have sudo access to (e.g. your laptop). Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
 
 This is the extent of the singularity recipe file (with the very minimal changes from the original docker file):
 ```
@@ -93,222 +81,191 @@ Built on a local machine with:
     sudo singularity build pwiz.sif pwiz.build
 ```
 
-I tried two other approaches for more general image, but did not fix root issue on Gadi.
+You will then need to transfer this container to your working directory on Gadi, e.g. `/scratch/xh27/tc6463/Gadi`.
+
+##### Convert files
+
+1. Make inputs 
+
+Open `convert_make_input.sh` in an text editor and change variables:
+
+- `pwiz=pwiz.sif`. Full or relative path to the ProteoWizard singularity container.
+- `wiffDir=wiff`. Full or relative path to the directory containing your wiff files to convert.
+- `outDir=Expanded_mzML`. Full or relative path to the output directory containing convered mzML files.
+
+Save and run the script by `sh convert_make_input.sh`. This will create `Inputs/convert.txt` which should resemble:
 
 ```
-# Approach 2
-chown -Rf --no-preserve-root galaxy_docker /wineprefix64
-chgrp -Rf `whoami` /wineprefix64
-
-# Approach 3
-ORIGINAL_PREFIX=/wineprefix64
-WINEPREFIX=/wineuser
-mkdir -p $WINEPREFIX
-
-for file in ${ORIGINAL_PREFIX}/*
-do
-  ln -sT ${file} ${WINEPREFIX}/$(basename ${file})
-done
+[tc6463@gadi-login-06 DiaNN_dev]$ head Inputs/convert.txt
+pwiz.sif,pilot_data/Sample1.wiff,Expanded_mzML,./Logs/convert
+pwiz.sif,pilot_data/Sample2.wiff,Expanded_mzML,./Logs/convert
+pwiz.sif,pilot_data/Sample3.wiff,Expanded_mzML,./Logs/convert
 ```
 
+Each line of this file will be provided as input to `convert.sh`.
 
+2. Check command to be executed in parallel
 
-## 3. Make list of files to be read in STEP3 and STEP5
+Check `convert.sh` which contains the command to convert one wiff to one mzML file.
 
-```
-#Group the filenames into batches
-ls -v Expanded_mzML/ > filelist.list
+3. Execute commands in parallel, with each command taking one line of input data
 
-#Add "--f" to the start of each line and the path and push to the actual config files
-sed -e 's#^#--f /scratch/md01/DIANN/Expanded_mzML/#' filelist.list > /scratch/md01/DIANN/scripts/filelist.txt
-
-#Add "\" to the end of each line
-sed -i 's#$# \\#'  /scratch/md01/DIANN/scripts/filelist.txt
-```
-
-Adjust the DiaNN configuration option in each run_STEP?.pbs as appropriate for your experiment.
-
-## 4. Run DiaNN Workflow
-
-### run_STEP1.pbs
-
-Generate an in silico predicted spectral library from a FASTA sequence database (in Uniprot format). This step does not require any raw files. It should only be carried out once per FASTA.
+Open `convert_run_parallel.pbs` in a text editor and edit the PBS directives, scaling compute to the number of files you need to convert. Allow 1 CPU, 4GB MEM, walltime=02:00:00 per file conversion for [Gadi's normal queue](https://opus.nci.org.au/display/Help/Queue+Limits). This uses `nci-parallel` to execute `convert.sh` for every line of input in `Inputs/convert.txt`. Submit the job by:
 
 ```
-#!/bin/bash
-#PBS -q normal
-#PBS -l ncpus=48
-#PBS -l walltime=48:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
-#PBS -j oe
-#PBS -N par_STEP1
-
-
-module load singularity
-
-export PROJFOLDER=/scratch/md01/DIANN
-export FASTAFILE=${PROJFOLDER}/sp_human_160321.fasta
-export OUTDIR=${PROJFOLDER}/out_par
-mkdir -p ${OUTDIR}
-export NTHREADS=$(expr ${PBS_NCPUS} + ${PBS_NCPUS})
-export NTHREADS=24
-
-/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
-        "diann --cut K*,R*,!*P --fixed-mod Carbamidomethyl,57.021464,C --var-mod Oxidation,15.994915,M \
-        --fasta-search --min-pr-mz 350 --max-pr-mz 950 --min-fr-mz 150 --max-fr-mz 1500 --min-pep-len 7 --max-pep-len 30 \
-        --min-pr-charge 2 --max-pr-charge 3 --var-mods 2  --predictor --verbose 3 --gen-spec-lib --missed-cleavages 1 \
-        --threads ${NTHREADS} --fasta ${FASTAFILE} \
-        --out ${OUTDIR}/report_${PBS_JOBNAME}.tsv --out-lib  ${OUTDIR}/lib_${PBS_JOBNAME}.lib"
-```
-Submit with `` job1=`qsub run_STEP1.pbs` ``
-
-Output: **.predicted.speclib** file containing an in silico library; log file.
-`lib.predicted.speclib` and `lib.log.txt` from DiaNN and `par_STEP1.o????????` log from GADI.
-
-
-### run_STEP2.pbs
-
-Preliminary analysis of individual raw files. Analyse each run separately with the in silico library generated in step 1. The mass accuracies and the scan window settings in DIA-NN should be either fixed or left automatic. In the latter case, use `--individual-mass-acc` and `--individual-windows`. If mass accuracies are automatic, also supply `--quick-mass-acc`. Specify a folder with `--temp` where .quant files will be saved to.
-
-Make the list of commands to be run with nci-parallel:
-```
-export PROJFOLDER=/scratch/md01/DIANN
-export DATADIR=${PROJFOLDER}/Expanded_mzML
-export OUTDIR=${PROJFOLDER}/out_par
-export SPECLIB=${OUTDIR}/lib_par_STEP1.predicted.speclib
-export NTHREADS=6
-
-for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c "diann --verbose 3 --individual-windows --min-corr 2.0 --corr-diff 1.0 --quick-mass-acc --individual-mass-acc --time-corr-only --lib '${SPECLIB}' --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv --out-lib  '${OUTDIR}'/lib_STEP2"'; done > commands_STEP2.txt
+qsub convert_run_parallel.pbs
 ```
 
-Make the pbs submission script
-```
-#!/bin/bash
-#PBS -q normal
-#PBS -l ncpus=288
-#PBS -l walltime=12:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
-#PBS -j oe
-#PBS -N par_STEP2
+4. Perform checks
 
-module load nci-parallel/1.0.0a
-module load singularity
+To check that the job completed successfully:
+- Check Gadi job log files `Logs/convert.e` (all tasks should have exit status of 0 and match the number of lines in `Inputs/convert.txt`) and `Logs/convert.o` 
+- Check the expected output exists. In this example the `Example_mzML` directory and all mzML files that exist
+- Check task log files in the directory `Logs/convert` - especially if you suspect some tasks failed (from checks above).
 
-export ncores_per_task=6
-export ncores_per_numanode=12
-export PROJFOLDER=/scratch/md01/DIANN
+## User guide
+---
 
-mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} \
-  nci-parallel --input-file ${PROJFOLDER}/commands_STEP2.txt --timeout 10000
-```
-Submit with `` job2=`qsub -W depend=afterok:${job1} run_STEP2.pbs` ``
+Submit all scripts from the Gadi directory, e.g. `/scratch/xh27/tc6463/Gadi`. Each step includes 1 job submitted to Gadi. Only proceed with the next step once the previous step has completed successfully. 
 
-Output: *.quant file* for each raw file that contains IDs and quant info; log file.
+**General note (more details are provided in the steps below):** Some steps in the workflow are scalable. For these steps, input parameters are generated with `*_make_input.sh` and saved into a file such as `Inputs/inputs.txt`. Each line of `inputs.txt` will be used by a command script such as `commands.sh` and run as an independant "task". Thus, the `commands.sh` is where you would adjust parameters for all tasks. To run `commands.sh` in parallel with `inputs.txt`, use `command.pbs`, scaling compute to the number/size of inputs you have. 
 
-### run_STEP3.pbs
+### Step 1. Generate insilico spectral library
 
-Assemble an empirical spectral library from the .quant files. For this all .quant files must be accessible for the given instance of DIA-NN. No access to the raw data is required, if DIA-NN is supplied with the --rt-profiling command. This corresponds to "IDs, RT & IM profiling" mode of library generation. To execute this step, run DIA-NN with the --use-quant command, listing all raw files with --f though (but they don't need to be accessible, these file names are only used to infer .quant files file names). The location of .quant files can be specified with --temp. If the mass accuracies and the scan window settings in DIA-NN were automatic during Step 2, please use --individual-mass-acc and/or --individual-windows, respectively.
+Description: Generate an in silico predicted spectral library from a FASTA sequence database (in Uniprot format).
+
+Required inputs: Uniprot formatted FASTA file, e.g. `mouse_proteome.fasta`
+
+Check/edit `1_generate_insilico_lib.pbs`:
+* The default PBS directives are sufficient for a human/mouse reference FASTA sequence file.
+* `fasta=mouse_proteome.fasta`. Change to the full or relative path to your reference FASTA file.
+* Check/change parameters. The current settings follow [quantms defaults](https://github.com/bigbio/quantms).
+
+Submit the job by:
 
 ```
-#!/bin/bash
-#PBS -q normal
-#PBS -l ncpus=48
-#PBS -l walltime=48:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
-#PBS -j oe
-#PBS -N par_STEP3
-
-module load singularity
-
-export PROJFOLDER=/scratch/md01/DIANN
-export OUTDIR=${PROJFOLDER}/out_par
-export NTHREADS=$(expr ${PBS_NCPUS} + ${PBS_NCPUS})
-export SPECLIB=${OUTDIR}/lib_par_STEP1.predicted.speclib
-export FILELIST=${PROJFOLDER}/scripts/filelist.txt
-
-/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
-        "diann `cat ${FILELIST}` --lib ${SPECLIB} --threads ${NTHREADS} --out ${OUTDIR}/report_${PBS_JOBNAME}.tsv --out-lib ${OUTDIR}/emp_lib.tsv \
-        --verbose 3 --rt-profiling --use-quant --quick-mass-acc --individual-mass-acc --individual-windows --gen-spec-lib"
-```
-Submit with `` job3=`qsub -W depend=afterok:${job2} run_STEP3.pbs` ``
-
-Output: *.tsv* spectral library.
-
-### run_STEP4.pbs
-
-Make the list of commands to be run with nci-parallel:
-```
-export PROJFOLDER=/scratch/md01/DIANN
-export DATADIR=${PROJFOLDER}/Expanded_mzML
-export OUTDIR=${PROJFOLDER}/out_par
-export NTHREADS=6
-
-for i in `ls -d Expanded_mzML/*.mzML | xargs -n 1 basename`; 
-do echo 'singularity run --bind /scratch:/scratch '${PROJFOLDER}'/diann_v1.8.1_cv1.sif /bin/bash -c "diann --verbose 3 --mass-acc 12 --mass-acc-ms1 8 --window 8 --no-ifs-removal --no-main-report --relaxed-prot-inf --pg-level 2 --lib '${OUTDIR}'/emp_lib.tsv --f '${DATADIR}'/'${i}' --threads '${NTHREADS}' --out '${OUTDIR}'/report_STEP2.tsv"'; done > commands_STEP4.txt
+qsub 1_generate_insilico_lib.pbs
 ```
 
-Make the pbs job submission script
+### Step 2. Preliminary analysis (scalable)
+
+Description: Analyse each run (ie mzML file) with the in silico library generated in step 1. The mass accuracies and the scan window settings in DIA-NN should be either fixed or left automatic. In the latter case, please use `--individual-mass-acc` and `--individual-windows`. If mass accuracies are automatic, please also supply the `--quick-mass-acc` command. Specify a folder with `--temp` where `.quant` files will be saved to.
+
+Required inputs: `*.predicted.speclib`, sample `*.mzML` files
+
+Check/edit variables in `2_preliminary_analysis_make_input.sh`:
+* `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container. 
+* `lib=mouse_proteome.predicted.speclib`. Full or relative path to in silico spectral library produced in step 1.
+* `mzMLDir=Expanded_mzML_complete`. Full or relative path to the directory containing sample mzML files
+
+Run the script: 
+
 ```
-#!/bin/bash
-
-#PBS -q normal
-#PBS -l ncpus=288
-#PBS -l walltime=12:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
-#PBS -j oe
-#PBS -N par_STEP4
-
-module load nci-parallel/1.0.0a
-module load singularity
-
-export ncores_per_task=6
-export ncores_per_numanode=12
-export PROJFOLDER=/scratch/md01/DIANN
-
-mpirun -np $((PBS_NCPUS/ncores_per_task)) --map-by ppr:$((ncores_per_numanode/ncores_per_task)):NUMA:PE=${ncores_per_task} \
-        nci-parallel --input-file ${PROJFOLDER}/commands_STEP4.txt --timeout 10000
+sh 2_preliminary_analysis_make_input.sh
 ```
 
-Submit with `` job4=`qsub -W depend=afterok:${job3} run_STEP4.pbs` ``
+This will generate `Inputs/2_preliminary_analysis.txt`, containing a list of inputs for `2_preliminary_analysis.sh`.
 
-### run_STEP5.pbs
+Check/edit parameters in `2_preliminary_analysis.sh`, containing the diann command to run. 
+
+* The script is currently set to "automatic"
+* From [the DIA-NN primary developer](https://github.com/bigbio/quantms/issues/164): "Low RAM & high speed mode enabled by --min-corr 2.0 --corr-diff 1.0 --time-corr-only might prove useful during Step 2, it typically leads to no or very minimal drop in ID numbers."
+* If you made changes to the command, I recommend checking that it works before executing it on all samples by copying the first line of `Inputs/2_preliminary_analysis.txt` and on the command line:
+
 ```
-#!/bin/bash
-
-#PBS -q normal
-#PBS -l ncpus=48
-#PBS -l walltime=48:00:00
-#PBS -l mem=190GB
-#PBS -l wd
-#PBS -l storage=scratch/md01
-#PBS -P md01
-#PBS -j oe
-#PBS -N par_STEP5
-
-module load singularity
-
-export PROJFOLDER=/scratch/md01/DIANN
-export DATADIR=${PROJFOLDER}/Expanded_mzML
-export OUTDIR=${PROJFOLDER}/out_par
-export NTHREADS=$(expr ${PBS_NCPUS} + ${PBS_NCPUS})
-export SPECLIB=${OUTDIR}/emp_lib.tsv
-
-/usr/bin/time -v singularity run --bind /scratch:/scratch ${PROJFOLDER}/diann_v1.8.1_cv1.sif /bin/bash -c \
-        "diann `cat ${PROJFOLDER}/scripts/filelist.txt` --lib ${OUTDIR}/emp_lib.tsv --fasta ${FASTAFILE}  --threads ${NTHREADS}  --out ${OUTDIR}/diann_report.tsv \
-        --verbose 3 --individual-windows --quick-mass-acc --individual-mass-acc --relaxed-prot-inf --pg-level 2 --use-quant --matrices"
+# Optional check
+NCPUS=1
+2_preliminary_analysis.sh <first line of Inputs/2_preliminary_analysis.txt>
 ```
 
-Submit with `` qsub -W depend=afterok:${job4} run_STEP5.pbs ``
+Edit `2_preliminary_analysis.pbs`
 
+* The PBS directives: scale compute using `#PBS -l` directives to the number of mzML files and allow for additional walltime. From benchmarking, allow 8 CPU, 16GB MEM, walltime=00:19:04 per mzML file. Edit `#PBS -l storage=` and `#PBS -P project` directives.
+
+Run the job:
+```
+qsub 2_preliminary_analysis.pbs
+```
+
+### Step 3. Assemble empirical spectral library
+
+Description: Assemble and empirical spectral library from sample `*.quant` files generated with the predicted spectral library in steps 1 & 2. 
+
+Required inputs: sample `*mzML` files, used to locate sample quant files in `--temp` directory `quant/*.quant`, `*.predicted.speclib`
+
+Check/edit `3_assemble_empirical_lib.pbs`:
+* The PBS directives: Compute should be sufficient to process ~100 samples. Time sigificantly increases without previously generated `*.quant` files. Scalability testing is required to understand how this job handles more samples. Edit `#PBS -l storage=` and `#PBS -P project` directives. 
+
+Run the job:
+```
+qsub 3_assemble_empirical_lib.pbs
+```
+
+### Step 4. Individual file analysis (scalable)
+
+Description: Final analysis of individual raw files using empirical spectral library with each individual raw file (in parallel). 
+
+Check/edit variables in `4_individual_final_analysis_make_input.sh`:
+* `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container.
+* `lib=mouse_proteome.empirical.speclib`. Full or relative path to `*.empirical.speclib`.
+* `mzMLDir=Expanded_mzML`. Full or relative path to directory containing `*.mzML` (used to locate sample `*.quant` files in the `quant` directory)
+
+Run the script:
+```
+sh 4_individual_final_analysis_make_input.sh
+```
+
+This will generate `Inputs/4_individual_final_analysis.txt`, containing a list of inputs for `4_individual_final_analysis.sh`.
+
+Check/edit parameters in `4_individual_final_analysis.sh`, containing the diann command to run. 
+
+* [Please note the developers comment](https://github.com/bigbio/quantms/issues/164): Now, mass accuracies & scan window must be fixed here. If mass accuracise and scan windows were not fixed for Step 2, in the log file produced by the Step 3, there's a line like "Averaged recommended settings for this experiment: Mass accuracy = 11ppm, MS1 accuracy = 15ppm, Scan window = 7". From step 3's `report.log.txt`, you'll find something like:
+
+```
+[0:09] Averaged recommended settings for this experiment: Mass accuracy = 11ppm, MS1 accuracy = 20ppm, Scan window = 8
+```
+* If you made changes to the command, I recommend checking that it works before executing it on all samples by copying the first line of `Inputs/4_individual_final_analysis.txt` and on the command line:
+
+```
+# Optional check
+NCPUS=1
+4_individual_final_analysis.sh <first line of Inputs/4_individual_final_analysis.txt>
+```
+
+Check/edit `4_individual_final_analysis.pbs`:
+* The PBS directives: Compute should be sufficient to process ~100 samples (although more benchmarking and scalability testing is required). Edit `#PBS -l storage=` and `#PBS -P project` directives. 
+
+Submit the job:
+```
+qsub 4_individual_final_analysis.pbs
+```
+
+### Step 5. Summarise
+
+Summarise the analysis 
+
+Required inputs: `empirical_library.tsv.speclib`, `*.fasta` (for annotation), sample `*.mzML` files (to locate `quant/*quant` files generated in step 4)
+
+Check/edit variables in `5_summarise.pbs`:
+* PBS directives: Edit `#PBS -l storage=` and `#PBS -P project` directives. Compute is small, for ~100 mouse samples allow `ncpus=1`, `mem=16GB`, `walltime=00:10:00`. For more samples, I recommend increasing memory (scalability tests to be performed).
+* Edit variables:
+    * `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container.
+    * `fasta=mouse_proteome.fasta`. Full or relative path to your reference FASTA sequence file.
+    * `empirical_lib=mouse_proteome.empirical.speclib`. Full or relative path to the empirical spectral library generated at step 3.
+    * `mzMLDir=Expanded_mzML`. Full or relative path to the directory containing sample `*mzML` files, used to locate `*.quant` files generated in step 4.
+
+
+## Benchmarks
+
+To process 105 mouse mzML files:
+
+```
+#JobName        CPUs_requested  CPUs_used       Mem_requested   Mem_used        CPUtime CPUtime_mins    Walltime_req    Walltime_used   Walltime_mins   JobFS_req       JobFS_used      Efficiency      Service_units   Job_exit_status Date    Time
+1_gen_insilico_lib.o    8       8       32.0GB  12.73GB 02:34:43        154.72  48:00:00        00:22:53        22.88   100.0MB 0B      0.85    6.10    0       2023-01-19      16:14:55
+2_preliminary_analysis.o        480     480     1.86TB  1.15TB  164:09:52       9849.87 04:00:00        00:44:19        44.32   1000.0MB        8.18MB  0.46    709.07  0       2023-01-20      17:24:23
+3_gen_empirical_lib.o   12      12      32.0GB  10.63GB 00:02:08        2.13    05:00:00        00:01:51        1.85    100.0MB 0B      0.10    0.74    0       2023-01-20      16:11:33
+4_individual_final_analysis.o   480     480     1.86TB  767.57GB        15:08:59        908.98  04:00:00        00:05:03        5.05    1000.0MB        8.18MB  0.37    80.80   0       2023-01-20      16:32:52
+5_summarise.o   12      12      32.0GB  4.24GB  00:01:57        1.95    05:00:00        00:02:11        2.18    100.0MB 0B      0.07    0.87    0       2023-01-20      16:47:08
+convert.o       144     144     570.0GB 362.21GB        111:08:14       6668.23 04:00:00        01:50:31        110.52  300.0MB 8.17MB  0.42    530.48  0       2023-01-20      10:58:06
+convert_normalbw.o      112     112     512.0GB 165.39GB        136:21:48       8181.80 04:00:00        02:35:22        155.37  400.0MB 8.1MB   0.47    362.52  0       2023-01-19      15:17:06
+```
