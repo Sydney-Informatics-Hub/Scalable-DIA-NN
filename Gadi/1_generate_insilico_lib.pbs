@@ -15,9 +15,10 @@ module load singularity
 cd ${PBS_O_WORKDIR}
 
 # CHANGE VARIBALES/PARAMETERS OF COMMAND BELOW
-export fasta=mouse_proteome.fasta
+fasta=mouse_proteome.fasta
+diannImg=diann_v1.8.1_cv1.sif
 
-singularity exec biocontainers-diann-v1.8.1_cv1.img \
+singularity exec ${diannImg} \
         diann \
 	--fasta ${fasta} \
 	--fasta-search \

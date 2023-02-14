@@ -14,10 +14,10 @@
 module load singularity
 
 # CHANGE VARIABLES
-diannImg=biocontainers-diann-v1.8.1_cv1.img
+diannImg=diann_v1.8.1_cv1.sif
 predicted_lib=mouse_proteome.predicted.speclib
 out_lib=mouse_proteome.empirical
-mzMLDir=Expanded_mzML_complete
+mzMLDir=Expanded_mzML
 
 temp=./quant
 

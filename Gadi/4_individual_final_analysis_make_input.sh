@@ -6,9 +6,9 @@
 # To run: sh ./4_individual_final_analysis_make_input.sh
 
 # CHANGE VARIABLES
-diannImg=biocontainers-diann-v1.8.1_cv1.img
+diannImg=diann_v1.8.1_cv1.sif
 lib=mouse_proteome.empirical.speclib
-mzMLDir=Expanded_mzML_complete
+mzMLDir=Expanded_mzML
 
 # SCRIPT (do not change)
 inputDir=./Inputs
