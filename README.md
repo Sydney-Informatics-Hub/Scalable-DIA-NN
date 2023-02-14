@@ -13,7 +13,6 @@ Please note:
 * [quantms](https://quantms.readthedocs.io/en/latest/) is intended to be a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here
 
 ## Infrastructure
----
 
 Please refer to the user guide for the infrastructure you are using:
 
