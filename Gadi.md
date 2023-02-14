@@ -17,12 +17,10 @@
 - [Benchmarks](#benchmarks)
 
 ## Description
----
 
 This workflow implements the Linux/CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion on the [National Computational Infrastructure's Gadi HPC](https://nci.org.au/news-events/events/introduction-gadi-4#:~:text=Gadi%20is%20Australia's%20most%20powerful,designing%20molecules%20to%20astrophysical%20modelling). DIA-NN is a tool that performs data processing and analysis for data-independant acquistion (DIA) proteomics data and was originally developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
 ## Set up & installation
----
 
 You must have a project and allocation on NCI Gadi to run this workflow. Once you have logged onto Gadi, navigate to your working directory, e.g: 
 
@@ -46,10 +44,9 @@ module load singularity
 singularity pull docker://biocontainers/diann:v1.8.1_cv1
 ```
 
-You should now have the singularity container `biocontainers-diann-v1.8.1_cv1.img` and the `*.pbs`, `*.sh` scripts to run this workflow on Gadi. 
+You should now have the singularity container `diann_v1.8.1_cv1.sif` and the `*.pbs`, `*.sh` scripts to run this workflow on Gadi. 
 
 ## Required inputs 
----
 
 ### Proteome FASTA
 
@@ -59,9 +56,7 @@ Transfer your Uniprot formatted FASTA file to the working directory, e.g. `/scra
 
 The Linux version of DIA-NN supports `*.mzML` file formats. All `*.mzML` data should be transferred to a directory within `Gadi`, e.g. `/scratch/xh27/tc6463/Gadi/Expanded_mzML`. Sciex `*.wiff` data must be converted to `*.mzML` format (see below). 
 
-#### Converting wiff to mzML
-
-##### Obtain ProteoWizard
+#### Converting wiff to mzML with ProteoWizard
 
 [DIA-NN recommends ProteoWizard](https://github.com/vdemichev/DiaNN#raw-data-formats) for `*.wiff` file support. There were some issues with this singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. You will need to rebuild the container for your user ID on Gadi on a compute your have sudo access to (e.g. your laptop). Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
 
@@ -110,7 +105,7 @@ Check `convert.sh` which contains the command to convert one wiff to one mzML fi
 
 3. Execute commands in parallel, with each command taking one line of input data
 
-Open `convert_run_parallel.pbs` in a text editor and edit the PBS directives, scaling compute to the number of files you need to convert. Allow 1 CPU, 4GB MEM, walltime=02:00:00 per file conversion for [Gadi's normal queue](https://opus.nci.org.au/display/Help/Queue+Limits). This uses `nci-parallel` to execute `convert.sh` for every line of input in `Inputs/convert.txt`. Submit the job by:
+Open `convert.pbs` in a text editor and edit the PBS directives, scaling compute to the number of files you need to convert. Allow 1 CPU, 4GB MEM, walltime=02:00:00 per file conversion for [Gadi's normal queue](https://opus.nci.org.au/display/Help/Queue+Limits). This uses `nci-parallel` to execute `convert.sh` for every line of input in `Inputs/convert.txt`. Submit the job by:
 
 ```
 qsub convert_run_parallel.pbs
@@ -120,11 +115,10 @@ qsub convert_run_parallel.pbs
 
 To check that the job completed successfully:
 - Check Gadi job log files `Logs/convert.e` (all tasks should have exit status of 0 and match the number of lines in `Inputs/convert.txt`) and `Logs/convert.o` 
-- Check the expected output exists. In this example the `Example_mzML` directory and all mzML files that exist
+- Check the expected output exists. In this example, this would be the `Example_mzML/*.mzML` files.
 - Check task log files in the directory `Logs/convert` - especially if you suspect some tasks failed (from checks above).
 
 ## User guide
----
 
 Submit all scripts from the Gadi directory, e.g. `/scratch/xh27/tc6463/Gadi`. Each step includes 1 job submitted to Gadi. Only proceed with the next step once the previous step has completed successfully. 
 
@@ -139,6 +133,7 @@ Required inputs: Uniprot formatted FASTA file, e.g. `mouse_proteome.fasta`
 Check/edit `1_generate_insilico_lib.pbs`:
 * The default PBS directives are sufficient for a human/mouse reference FASTA sequence file.
 * `fasta=mouse_proteome.fasta`. Change to the full or relative path to your reference FASTA file.
+* `diannImg=diann_v1.8.1_cv1.sif`. Full or relative path to diann singularity container.
 * Check/change parameters. The current settings follow [quantms defaults](https://github.com/bigbio/quantms).
 
 Submit the job by:
@@ -154,9 +149,9 @@ Description: Analyse each run (ie mzML file) with the in silico library generate
 Required inputs: `*.predicted.speclib`, sample `*.mzML` files
 
 Check/edit variables in `2_preliminary_analysis_make_input.sh`:
-* `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container. 
+* `diannImg=diann_v1.8.1_cv1.sif`. Full or relative path to diann singularity container. 
 * `lib=mouse_proteome.predicted.speclib`. Full or relative path to in silico spectral library produced in step 1.
-* `mzMLDir=Expanded_mzML_complete`. Full or relative path to the directory containing sample mzML files
+* `mzMLDir=Expanded_mzML`. Full or relative path to the directory containing sample mzML files
 
 Run the script: 
 
@@ -174,8 +169,9 @@ Check/edit parameters in `2_preliminary_analysis.sh`, containing the diann comma
 
 ```
 # Optional check
+module load singularity
 NCPUS=1
-2_preliminary_analysis.sh <first line of Inputs/2_preliminary_analysis.txt>
+sh 2_preliminary_analysis.sh <first line of Inputs/2_preliminary_analysis.txt>
 ```
 
 Edit `2_preliminary_analysis.pbs`
@@ -206,7 +202,7 @@ qsub 3_assemble_empirical_lib.pbs
 Description: Final analysis of individual raw files using empirical spectral library with each individual raw file (in parallel). 
 
 Check/edit variables in `4_individual_final_analysis_make_input.sh`:
-* `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container.
+* `diannImg=diann_v1.8.1_cv1.sif`. Full or relative path to diann singularity container.
 * `lib=mouse_proteome.empirical.speclib`. Full or relative path to `*.empirical.speclib`.
 * `mzMLDir=Expanded_mzML`. Full or relative path to directory containing `*.mzML` (used to locate sample `*.quant` files in the `quant` directory)
 
@@ -228,8 +224,9 @@ Check/edit parameters in `4_individual_final_analysis.sh`, containing the diann 
 
 ```
 # Optional check
+module load singularity
 NCPUS=1
-4_individual_final_analysis.sh <first line of Inputs/4_individual_final_analysis.txt>
+sh 4_individual_final_analysis.sh <first line of Inputs/4_individual_final_analysis.txt>
 ```
 
 Check/edit `4_individual_final_analysis.pbs`:
@@ -249,7 +246,7 @@ Required inputs: `empirical_library.tsv.speclib`, `*.fasta` (for annotation), sa
 Check/edit variables in `5_summarise.pbs`:
 * PBS directives: Edit `#PBS -l storage=` and `#PBS -P project` directives. Compute is small, for ~100 mouse samples allow `ncpus=1`, `mem=16GB`, `walltime=00:10:00`. For more samples, I recommend increasing memory (scalability tests to be performed).
 * Edit variables:
-    * `diannImg=biocontainers-diann-v1.8.1_cv1.img`. Full or relative path to diann singularity container.
+    * `diannImg=diann_v1.8.1_cv1.sif`. Full or relative path to diann singularity container.
     * `fasta=mouse_proteome.fasta`. Full or relative path to your reference FASTA sequence file.
     * `empirical_lib=mouse_proteome.empirical.speclib`. Full or relative path to the empirical spectral library generated at step 3.
     * `mzMLDir=Expanded_mzML`. Full or relative path to the directory containing sample `*mzML` files, used to locate `*.quant` files generated in step 4.
