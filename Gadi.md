@@ -61,19 +61,21 @@ The Linux version of DIA-NN supports `*.mzML` file formats. All `*.mzML` data sh
 [DIA-NN recommends ProteoWizard](https://github.com/vdemichev/DiaNN#raw-data-formats) for `*.wiff` file support. There were some issues with this singularity container. Specifically the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on Gadi. You will need to rebuild the container for your user ID on Gadi on a compute your have sudo access to (e.g. your laptop). Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
 
 This is the extent of the singularity recipe file (with the very minimal changes from the original docker file):
-```
-    Bootstrap: docker
-    From: chambm/pwiz-skyline-i-agree-to-the-vendor-licenses
-    %post
 
-    #Get uid from "id -u `whoami`" on Gadi
-    useradd -u 6253 npb562
-    chown -Rf --no-preserve-root cp2596 /wineprefix64
+Run `id -u `whoami`` on Gadi. Replace <uid> and <user> with your Gadi UID and username.  
+```
+Bootstrap: docker
+From: chambm/pwiz-skyline-i-agree-to-the-vendor-licenses
+%post
+
+#Get uid from "id -u `whoami`" on Gadi
+useradd -u <uid> <user>
+chown -Rf --no-preserve-root cp2596 /wineprefix64
 ```
 
 Built on a local machine with:
 ```
-    sudo singularity build pwiz.sif pwiz.build
+sudo singularity build pwiz.sif pwiz.build
 ```
 
 You will then need to transfer this container to your working directory on Gadi, e.g. `/scratch/xh27/tc6463/Gadi`.
