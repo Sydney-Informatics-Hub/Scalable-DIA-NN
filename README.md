@@ -68,7 +68,7 @@ Random errors may be encountered that look like this:
 Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE_BLOCKING
 ```
 
-The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will deect these (and other) task failures for resubmission. 
+The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
 ### Deprecated batching workflow
 
@@ -135,8 +135,229 @@ User-specified parameters will be updated to the workflow. The only script edits
 
 If you have a spectral library previosuly made frm your proteome fasta, that can be used. If not, run this step. 
 
-Details TBA. 
+Functionality TBA. 
 
-### 2. Preliminary analysis (parallel quantification)
+### 2. Preliminary quantification (parallel)
 
-This step performs preliminary quantificaiton of all input samples in parallel, using the provided in-silico spectral library. 
+This step performs preliminary quantification of all input samples in parallel, using the provided in-silico spectral library. 
+
+#### 2. With 'subsampling'
+
+If `subsample` was set to 'true' in the setup script, 10% (or whatever percentage user defined) of samples have been selected and printed to a list: `Inputs/2_preliminary_analysis_subsample.list`, and input configurations for these samples printed to `Inputs/2_preliminary_analysis.inputs`. 
+
+To run the step 2 subsampling, update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+
+Save the script, then submit:
+```
+Scripts/2_preliminary_analysis_run_parallel.pbs
+```
+
+Run times up to around 40 minutes have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
+
+After the subsampling job has finished, run the checker script:
+
+```
+Scripts/2_preliminary_analysis_check.sh
+```
+
+Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
+
+After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process until no more failed tasks are found. 
+
+Once all subsample tasks have successfully completed, extract the average recommended settings for scan window, mass accuracy and MS1 accuracy:
+
+```
+perl Scripts/2_subsample_averages.pl
+```
+
+This will report the averages derived from the subsamples, and update them to all scripts in the workflow. The workflow is to be resumed from step 2, with all samples in cohort (including the subsamples). The above perl script also updates the inputs configuration file for step 2 to include all samples in cohort. Now continue to the next section. 
+
+#### 2. Run step 2 on all samples
+
+If `subsample` was set to 'false' during setup: you have entered fixed values or 'auto' for scan window, mass acuracy and MS1 accuracy. In either case, or if you have just completed the 'with subsampling' section above, this step is the same. 
+
+Update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+
+Save the script, then submit:
+```
+Scripts/2_preliminary_analysis_run_parallel.pbs
+```
+
+Run times up to around 40 minutes have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
+
+After the step 2 job has finished, run the checker script:
+
+```
+Scripts/2_preliminary_analysis_check.sh
+```
+
+Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
+
+After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process of resubmitting and checking until no more failed tasks are found. 
+
+Once all step 2 tasks have successfully completed, move on to step 3. 
+
+### 3. Assemble empirical library
+
+This is a non-parallel job that reads all the quantification files generated at step 2, together with the input in-silico spectral library, and creates a cohort-specific empirical spectral library. The subsequent steps requantifies all samples with this library. 
+
+Example resource usage:
+
+- 146 samples, 12 CPU, 'normal' queue: 19 GB RAM, 14 minutes walltime
+- 1530 samples, 48 CPU, 'normal' queue: 120 GB RAM, 5 hours 35 minutes walltime
+
+Update resources in `Scripts/3_assemble_empirical_lib.pbs` then submit:
+```
+qsub  Scripts/3_assemble_empirical_lib.pbs
+```
+
+Once the job has completed, perform the following simple manual checks before proceeding to step 4:
+
+- Job exit status 0:
+```
+$ grep Exit PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.o 
+   Exit Status:        0
+```
+- No errors in PBS error log:
+```
+$ wc -l PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e 
+0 PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e
+
+```
+- Log file describes a spectral library and ends in 'Finished':
+```
+$ tail Logs/3_assemble_empirical_lib.log 
+[334:22] Loading the generated library and saving it in the .speclib format
+[334:22] Loading spectral library 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+[334:29] Spectral library loaded: 12759 protein isoforms, 8342 protein groups and 39315 precursors in 32612 elution groups.
+[334:29] Protein names missing for some isoforms
+[334:29] Gene names missing for some isoforms
+[334:29] Library contains 0 proteins, and 0 genes
+[334:29] Saving the library to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+[334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+Finished
+```
+- Output directory contains these 5 files:
+```
+$ ls -lh 3_empirical_library/
+total 29G
+-rw-r--r-- 1 cew562 xh27 111M Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+-rw-r--r-- 1 cew562 xh27 3.2K Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+-rw-r--r-- 1 cew562 xh27  29G Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.report
+-rw-r--r-- 1 cew562 xh27  12M Oct 20 18:28 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+-rw-r--r-- 1 cew562 xh27 234K Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.stats.tsv
+```
+
+### 4. Final quantification (parallel)
+
+ If 'auto' scan window, mass accuracy and MS1 accuracy parameters were applied for steps 2 and 3, users can opt to run a script that will extract the average recommended parameters from the step 3 log and apply these to the remainder of the workflow. 
+
+ Note that this step is NOT required if fixed parameters have been included at steps 2 and 3 (eitehr from subsampling, or fixed from step 0). 
+
+#### Optional step to extract recommended parameters from 'auto' runs
+
+Run the following: 
+
+```
+perl Scripts/4_individual_final_analysis_setup_params.pl
+```
+
+This will update the recommended parameters to the scripts for steps 4 and 5, as well as update the step 4 inputs configuration file, changing 'auto' to the new recommended parameters. 
+
+After running this script, run step 4 as usual. 
+
+#### Run step 4 on all samples
+
+Update resources in `Scripts/4_individual_final_analysis_run_parallel.pbs`, allowing 4 CPU, 16 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+
+Save the script, then submit:
+```
+qsub Scripts/4_individual_final_analysis_run_parallel.pbs
+```
+
+Run times up to around 1.5 hours have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
+
+After the step 4 job has finished, run the checker script:
+
+```
+bash Scripts/4_individual_final_analysis_check.sh
+```
+
+Any failed tasks will be written to `Inputs/4_individual_final_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/4_individual_final_analysis_run_parallel_failed.pbs` and then submit. 
+
+After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process of resubmitting and checking until no more failed tasks are found. 
+
+Once all step 4 tasks have successfully completed, move on to step 5.
+
+### 5. Summarise analysis
+
+This step reads the final quantification files and cohort-specific spectral library to create final matrices and stats report files. 
+
+Example resource usage:
+
+- 146 samples, 24 CPU 'normal' queue: 12 minutes, 17 GB RAM
+- 1530 samples, 28 CPU 'normalbw' queue: TBA
+
+Update resources in `Scripts/5_summarise.pbs` and submit:
+
+```
+qsub Scripts/5_summarise.pbs
+```
+
+Once the job has completed, perform the following simple manual checks:
+
+- Job exit status 0:
+```
+[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ grep Exit PBS_logs/step5_run3_wiff_146s.o
+   Exit Status:        0
+```
+- No errors in PBS error log:
+```   
+[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ wc -l PBS_logs/step5_run3_wiff_146s.e 
+0 PBS_logs/step5_run3_wiff_146s.e
+```
+
+- Log file describes matrix files and ends in 'Finished':
+```
+[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ tail Logs/5_summarise.log 
+[11:19] Saving protein group levels matrix
+[11:20] Protein group levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.pg_matrix.tsv.
+[11:20] Saving gene group levels matrix
+[11:20] Gene groups levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.gg_matrix.tsv.
+[11:20] Saving unique genes levels matrix
+[11:21] Unique genes levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.unique_genes_matrix.tsv.
+[11:21] Stats report saved to ./5_summarise/run3_wiff_146s_diann_report.stats.tsv
+[11:21] Log saved to ./5_summarise/run3_wiff_146s_diann_report.log.txt
+Finished
+```
+-  Output directory contains these 7 files:
+```
+$ ls -lh 5_summarise/
+total 3.4G
+-rw-r--r-- 1 cew562 er01 3.5M Oct 13 22:31 run3_wiff_146s_diann_report.gg_matrix.tsv
+-rw-r--r-- 1 cew562 er01  15K Oct 13 22:31 run3_wiff_146s_diann_report.log.txt
+-rw-r--r-- 1 cew562 er01 3.8M Oct 13 22:31 run3_wiff_146s_diann_report.pg_matrix.tsv
+-rw-r--r-- 1 cew562 er01  37M Oct 13 22:31 run3_wiff_146s_diann_report.pr_matrix.tsv
+-rw-r--r-- 1 cew562 er01  28K Oct 13 22:31 run3_wiff_146s_diann_report.stats.tsv
+-rw-r--r-- 1 cew562 er01 3.4G Oct 13 22:31 run3_wiff_146s_diann_report.tsv
+-rw-r--r-- 1 cew562 er01 3.1M Oct 13 22:31 run3_wiff_146s_diann_report.unique_genes_matrix.tsv
+```
+### 6. Optional filter for missing values
+
+The setup script included a `missing` parameter. This is a percentage threshold of samples with abundance values below which to discard a gene. To filter the final unique genes matrix to include only genes with at least N% of samples with abundance values, run the following:
+
+```
+perl Scripts/6_filter_missing.pl
+```
+
+This will create 2 additional files in the `5_summarise` output directory:
+- <cohort_name>_<number-of-samples>s_diann_report.filter-30-percent.unique_genes_matrix.tsv
+- <cohort_name>_<number-of-samples>s.filter-<N>-percent.discarded_genes.txt
+
+The filtered unique genes matrix has the same format as the standard DIA-ANN unique genes matrix. The discarded genes file is a 2-column TSV with gene name and % of samples with no value for that gene. 
+
+## A note on efficiency
+
+This workflow has fairly poor CPU efficiency, in part to do with running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requireng the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
+
+Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
