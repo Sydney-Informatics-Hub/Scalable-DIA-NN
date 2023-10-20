@@ -206,6 +206,8 @@ Example resource usage:
 - 146 samples, 12 CPU, 'normal' queue: 19 GB RAM, 14 minutes walltime
 - 1530 samples, 48 CPU, 'normal' queue: 120 GB RAM, 5 hours 35 minutes walltime
 
+As cohort size increases, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
+
 Update resources in `Scripts/3_assemble_empirical_lib.pbs` then submit:
 ```
 qsub  Scripts/3_assemble_empirical_lib.pbs
@@ -297,6 +299,8 @@ Example resource usage:
 
 - 146 samples, 24 CPU 'normal' queue: 12 minutes, 17 GB RAM
 - 1530 samples, 28 CPU 'normalbw' queue: TBA
+
+As cohort size increases, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
 
 Update resources in `Scripts/5_summarise.pbs` and submit:
 
