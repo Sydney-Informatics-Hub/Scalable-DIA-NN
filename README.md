@@ -358,6 +358,6 @@ The filtered unique genes matrix has the same format as the standard DIA-ANN uni
 
 ## A note on efficiency
 
-This workflow has fairly poor CPU efficiency, in part to do with running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requireng the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
+This workflow has fairly poor CPU efficiency, in part to do with running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
 
 Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
