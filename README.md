@@ -298,7 +298,7 @@ This step reads the final quantification files and cohort-specific spectral libr
 Example resource usage:
 
 - 146 samples, 24 CPU 'normal' queue: 12 minutes, 17 GB RAM
-- 1530 samples, 28 CPU 'normalbw' queue: TBA
+- 1530 samples, 28 CPU 'normalbw' queue: 7 hrs 41 mins, 104 GB RAM 
 
 As cohort size increases, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
 
@@ -312,39 +312,41 @@ Once the job has completed, perform the following simple manual checks:
 
 - Job exit status 0:
 ```
-[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ grep Exit PBS_logs/step5_run3_wiff_146s.o
+$ grep Exit PBS_logs/step5_MM_Complete_Liver_Proteomics_1530s.o
    Exit Status:        0
 ```
 - No errors in PBS error log:
 ```   
-[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ wc -l PBS_logs/step5_run3_wiff_146s.e 
+$ wc -l PBS_logs/step5_MM_Complete_Liver_Proteomics_1530s.e 
 0 PBS_logs/step5_run3_wiff_146s.e
 ```
 
 - Log file describes matrix files and ends in 'Finished':
 ```
-[cew562@gadi-login-01 Run3_subsampling_average_fixed]$ tail Logs/5_summarise.log 
-[11:19] Saving protein group levels matrix
-[11:20] Protein group levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.pg_matrix.tsv.
-[11:20] Saving gene group levels matrix
-[11:20] Gene groups levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.gg_matrix.tsv.
-[11:20] Saving unique genes levels matrix
-[11:21] Unique genes levels matrix (1% precursor FDR and protein group FDR) saved to ./5_summarise/run3_wiff_146s_diann_report.unique_genes_matrix.tsv.
-[11:21] Stats report saved to ./5_summarise/run3_wiff_146s_diann_report.stats.tsv
-[11:21] Log saved to ./5_summarise/run3_wiff_146s_diann_report.log.txt
+$ tail Logs/5_summarise.log 
+[458:38] Saving protein group levels matrix
+[459:09] Protein group levels matrix (1% precursor FDR and protein group FDR) saved to 5_summarise/MM_Complete_Liver_Proteomics_1530s_diann_report.pg_matrix.tsv.
+[459:09] Saving gene group levels matrix
+[459:39] Gene groups levels matrix (1% precursor FDR and protein group FDR) saved to 5_summarise/MM_Complete_Liver_Proteomics_1530s_diann_report.gg_matrix.tsv.
+[459:39] Saving unique genes levels matrix
+[460:09] Unique genes levels matrix (1% precursor FDR and protein group FDR) saved to 5_summarise/MM_Complete_Liver_Proteomics_1530s_diann_report.unique_genes_matrix.tsv.
+[460:09] Stats report saved to 5_summarise/MM_Complete_Liver_Proteomics_1530s_diann_report.stats.tsv
+[460:09] Log saved to 5_summarise/MM_Complete_Liver_Proteomics_1530s_diann_report.log.txt
 Finished
+
 ```
 -  Output directory contains these 7 files:
 ```
 $ ls -lh 5_summarise/
-total 3.4G
--rw-r--r-- 1 cew562 er01 3.5M Oct 13 22:31 run3_wiff_146s_diann_report.gg_matrix.tsv
--rw-r--r-- 1 cew562 er01  15K Oct 13 22:31 run3_wiff_146s_diann_report.log.txt
--rw-r--r-- 1 cew562 er01 3.8M Oct 13 22:31 run3_wiff_146s_diann_report.pg_matrix.tsv
--rw-r--r-- 1 cew562 er01  37M Oct 13 22:31 run3_wiff_146s_diann_report.pr_matrix.tsv
--rw-r--r-- 1 cew562 er01  28K Oct 13 22:31 run3_wiff_146s_diann_report.stats.tsv
--rw-r--r-- 1 cew562 er01 3.4G Oct 13 22:31 run3_wiff_146s_diann_report.tsv
--rw-r--r-- 1 cew562 er01 3.1M Oct 13 22:31 run3_wiff_146s_diann_report.unique_genes_matrix.tsv
+total 33G
+-rw-r--r-- 1 cew562 xh27  36M Oct 21 02:07 MM_Complete_Liver_Proteomics_1530s_diann_report.gg_matrix.tsv
+-rw-r--r-- 1 cew562 xh27 3.5K Oct 21 02:08 MM_Complete_Liver_Proteomics_1530s_diann_report.log.txt
+-rw-r--r-- 1 cew562 xh27  37M Oct 21 02:07 MM_Complete_Liver_Proteomics_1530s_diann_report.pg_matrix.tsv
+-rw-r--r-- 1 cew562 xh27 315M Oct 21 02:06 MM_Complete_Liver_Proteomics_1530s_diann_report.pr_matrix.tsv
+-rw-r--r-- 1 cew562 xh27 234K Oct 21 02:08 MM_Complete_Liver_Proteomics_1530s_diann_report.stats.tsv
+-rw-r--r-- 1 cew562 xh27  32G Oct 21 02:02 MM_Complete_Liver_Proteomics_1530s_diann_report.tsv
+-rw-r--r-- 1 cew562 xh27  32M Oct 21 02:08 MM_Complete_Liver_Proteomics_1530s_diann_report.unique_genes_matrix.tsv
+
 ```
 ### 6. Optional filter for missing values
 
