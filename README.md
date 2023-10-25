@@ -58,7 +58,7 @@ In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectra
 3. Creation of cohort-specific empirical library
 4. Parallel final quantification of samples, using the empirical library 
 5. Creation of matrix and stats output files
-6. Optional filtering step to remvoe genes with high missig values
+6. Optional filtering step to remove genes with high missing values
 
 ### Random task errors under Wine
 
@@ -72,7 +72,7 @@ The parallel steps (where these are most often observed, due to sheer numbers) e
 
 ### Deprecated batching workflow
 
-The initial release of this workflow included a method to scale by batching, on Ronin/AWS and Gadi. This method is not recommended as it has inherent batch effects that are difficult to resolve. Batch correction steps were not included in the workflow. The instructions have been retained in [Deprecated_RoninAWS](). 
+The initial release of this workflow included a method to scale by batching, on Ronin/AWS and Gadi. This method is not recommended as it has inherent batch effects that are difficult to resolve. Batch correction steps were not included in the workflow. The instructions have been retained in [Deprecated_RoninAWS](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/tree/cali-dev/Deprecated_RoninAWS). 
 
 
 ## User guide
@@ -87,7 +87,7 @@ The initial release of this workflow included a method to scale by batching, on 
 - A spectral library file
     - If not available, can be generated at step 1
     - This file is not cohort-specific, so it can be re-used across multiple experiments  
-- Tar archive containing the PC version of DIA-NN (included with this repo)
+- Tar archive containing the PC version of DIA-NN [(included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
 - Singularity container with Wine and Mono 
 
 ### 0. Setup
@@ -106,7 +106,7 @@ cd Scalable-DiaNN
 
 Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following configuration options:
 
-- `wif_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data.
+- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data.
 - `cohort` : cohort name, to be used as prefix for output files.
 - `spectral_lib` : full filepath of the spectral library. This is not sample/cohort specific, so it can be pre-made and re-used across multiple experiments. If no spectral library, enter 'auto' and ensure to run Step 1: `1_generate_insilico_lib.pbs`. 
 - `empirical_lib` : Empirical library output file name prefix. The number of samples used in its creation will be automatically apended to the prefix. This is cohort-specific: generated from the non-specific `spectral_lib` and the sample quantification outputs from step 2.
@@ -133,9 +133,9 @@ User-specified parameters will be updated to the workflow. The only script edits
 
 ### 1. In silico library generation (optional) 
 
-If you have a spectral library previosuly made frm your proteome fasta, that can be used. If not, run this step. 
+If you have a spectral library previously made frm your proteome fasta, that can be used. If not, run this step. 
 
-Functionality TBA. 
+[Functionality TBA](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/5). 
 
 ### 2. Preliminary quantification (parallel)
 
@@ -254,7 +254,7 @@ total 29G
 
  If 'auto' scan window, mass accuracy and MS1 accuracy parameters were applied for steps 2 and 3, users can opt to run a script that will extract the average recommended parameters from the step 3 log and apply these to the remainder of the workflow. 
 
- Note that this step is NOT required if fixed parameters have been included at steps 2 and 3 (eitehr from subsampling, or fixed from step 0). 
+ Note that this step is NOT required if fixed parameters have been included at steps 2 and 3 (either from subsampling, or fixed from step 0). 
 
 #### Optional step to extract recommended parameters from 'auto' runs
 
@@ -277,7 +277,7 @@ Save the script, then submit:
 qsub Scripts/4_individual_final_analysis_run_parallel.pbs
 ```
 
-Run times up to around 1.5 hours have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
+Run times up to around 1.5 hours have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples require a longer run time. Its best to let these few samples fail and be detected with the checker script. 
 
 After the step 4 job has finished, run the checker script:
 
@@ -357,13 +357,15 @@ perl Scripts/6_filter_missing.pl
 ```
 
 This will create 2 additional files in the `5_summarise` output directory:
-- <cohort_name>_<number-of-samples>s_diann_report.filter-30-percent.unique_genes_matrix.tsv
-- <cohort_name>_<number-of-samples>s.filter-<N>-percent.discarded_genes.txt
+- `\<cohort_name\>_\<number-of-samples\>s_diann_report.filter-\<N\>-percent.unique_genes_matrix.tsv`
+- `\<cohort_name\>_\<number-of-samples\>s.filter-\<N\>-percent.discarded_genes.txt`
 
 The filtered unique genes matrix has the same format as the standard DIA-ANN unique genes matrix. The discarded genes file is a 2-column TSV with gene name and % of samples with no value for that gene. 
 
 ## A note on efficiency
 
-This workflow has fairly poor CPU efficiency, in part to do with running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
+This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (which was not written to be parallelised in this way) and in part due to running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
 
 Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
+
+Updating to a Wine 7 container (currently using 6.8) may also help, and possibly overcome the DONE_BLOCKING errors. 
