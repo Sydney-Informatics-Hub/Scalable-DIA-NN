@@ -17,6 +17,7 @@ log_prefix=<prefix>
 o_log=$(ls -lhtr PBS_logs/$log_prefix*.o | tail -1 | awk '{print $9}')
 e_log=$(ls -lhtr PBS_logs/$log_prefix*.e | tail -1 | awk '{print $9}')
 
+
 #----------------------------
 
 #---------------------------- 
@@ -31,6 +32,20 @@ if [[ $o_log = *failed* ]]
 then
 	inputs=Inputs/4_individual_final_analysis.inputs-failed
 fi
+
+
+#----------------------------
+
+#----------------------------
+# Check the inputs file is not empty
+
+if ! [[ -s $inputs ]]
+then 
+	printf "ERROR: ${inputs} is missing or empty\n"
+	printf "This liklely means the whole job failed. Please investigate and re-submit the job.\n"
+	exit
+fi
+
 
 #----------------------------
 
@@ -70,6 +85,7 @@ if [[ ${#failed_samples[@]} < 1 ]]
 then
 	printf "\tAll samples task exit 0\n"
 fi
+
 
 #----------------------------
 
@@ -115,7 +131,6 @@ do
 done < ${inputs}
 
 
-
 #----------------------------
 
 #---------------------------- 
@@ -145,5 +160,6 @@ then
 else
 	printf " All samples outputs passed\nNo issues detected\n\n* Please adjust resources in Scripts/5_summarise.pbs and submit\n\n"
 fi
+
 
 #-----------------------------------------
