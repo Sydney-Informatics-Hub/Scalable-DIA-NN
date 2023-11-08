@@ -146,7 +146,7 @@ rm -rf ${failed}
 if [[ ${#uniq_err_samples[@]} -gt 0 ]]
 then
 
-	printf "\n\nWriting `echo ${#uniq_err_samples[@]}` failed tasks to ${failed} for the following samples:\n"
+	printf "\n\nWriting `echo ${#uniq_err_samples[@]}` failed tasks to ${inputs}-failed for the following samples:\n"
 
 	for sample in ${uniq_err_samples[@]}
 	do
