@@ -14,13 +14,13 @@
 ## A 'Raw_data' directory will be created in the base working directory with symlinks to all data files
 ## This is necessary to circumvent exceeding the ARG_MAX limit for the non-parallel steps (command too long for large cohorts) 
 
-wiff_dir=<dir>
+wiff_dir=
  
 #-----
 
 # Cohort name (number of samples will be auto-added):
 
-cohort=<cohort_name>
+cohort=
 
 #-----
 
@@ -30,7 +30,7 @@ cohort=<cohort_name>
 
 #### AUTO FUNCTIONALITY NOT YET DONE!####
 
-spectral_lib=<speclib>
+spectral_lib=
 
 #-----
 
@@ -38,13 +38,13 @@ spectral_lib=<speclib>
 # This is cohort- specific: generated from the non-specific speclib and the sample outputs from step 2
 # 2 files will be made with this prefix - an empirical/predicted speclib in TSV format the same in 'speclib' format 
 
-empirical_lib_prefix=<emp_lib_prefix>
+empirical_lib_prefix=
 
 #-----
 
 # Fasta: 
 
-fasta=<fasta>
+fasta=
 
 #-----
 
@@ -61,35 +61,38 @@ fasta=<fasta>
 # ms1 accuracy in this setup script (they will be ignored).
 # If subsample is false, user must set these 3 parameters to either auto or some value. 
 
-subsample=<true|false> #('true' or 'false')
-percent=<10>  
+# 'true' or 'false':
+subsample= 
 
-#### MANUAL SUBSAMLE LIST OVER-RIDE NOT YET DONE!####
+# Number 1-99:
+percent=  
+
+#### MANUAL SUBSAMPLE LIST OVER-RIDE NOT YET DONE!####
    
 #-----
 
 # Scan window ('auto' or integer):
 
-scan_window=<value> 
+scan_window= 
    
 #-----
 
 # Mass accuracy ('auto' or numeric) 
 
-mass_acc=<value>
+mass_acc=
    
 #-----
 
 # MS1 accuracy ('auto' or numeric) 
 
-ms1_acc=<20>
+ms1_acc=
    
 #-----
 
 # Filter for missingness: minimum percent of samples required with gene detected to keep a gene
 # Note: the full unfiltered output is retained, the filter creates new files with kept and discarded genes 
 
-missing=<30>
+missing=
 
 #-----
 
@@ -99,30 +102,35 @@ missing=<30>
 # of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry 
 # please fix manually, document, rerun. :-) 
 # Please add flags in exact notation as you would on DiaNN command line, and encase in double quotes. 
+# Please only add '--scanning-swath' if your data was generated in this way
+# Note that scaning-swath is not auto-detected on the CLI like it is by the GUI  
 
-# Added scanning swath here - was hardcoded into step 2 script only - not sure if we will get an error 
-# at any other steps where its not valid... 
+# Example value: "--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"
 
-extra_flags="--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"
+extra_flags=
 
 #-----
 
 # Accounting:
 
-project=<NCI_project_code>
-lstorage="scratch/<NCI_project_code>+gdata/<NCI_project_code>"
+# 4 digit NCI project code: 
+project=
+
+# storage paths in mandated NCI format (ie no leading forward slash, + between paths, no whitespace, gdata not 'g/data/')
+# Example: "scratch/ab12+gdata/cd34"
+lstorage=
 
 #-----
 
 # dot wine tar folder with DiANN.exe installed
 
-wine_tar=dot_wine.tar
+wine_tar=
 
 #-----
 
 # wine singularity container 
 
-wine_image=<custom_built_pwiz.sif>
+wine_image=
 
 #-----
 
