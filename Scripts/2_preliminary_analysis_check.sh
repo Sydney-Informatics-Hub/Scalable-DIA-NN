@@ -44,7 +44,7 @@ fi
 if ! [[ -s $inputs ]]
 then 
 	printf "ERROR: ${inputs} is missing or empty\n"
-	printf "This liklely means the whole job failed. Please investigate and re-submit the job.\n"
+	printf "This likely means the whole job failed. Please investigate and re-submit the job.\n"
 	exit
 fi
 
