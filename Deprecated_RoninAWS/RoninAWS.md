@@ -1,3 +1,7 @@
+*** This workflow has been deprecated*** 
+
+Please use instead the main parallel workflow under Wine
+
 # DiaNN
 AWS/Ronin big machine (windows) and multinode (linux) instructions to run https://github.com/vdemichev/DiaNN
 

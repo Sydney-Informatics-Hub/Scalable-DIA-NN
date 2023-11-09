@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Project, storage and logs will be auto-updated at setup
+# You will need to calculate apropriate resource requests based 
+# on your number of samples
+# Allow 12 CPU, 4 GB RAM and 10 GB jobfs per sample 
+
+#---------------------------- 
+
+#---------------------------- 
+
+#PBS -P <project>
+#PBS -N step2
+#PBS -l ncpus=<NCPUS>
+#PBS -l mem=<MEM>GB
+#PBS -l jobfs=<JOBFS>GB
+#PBS -l walltime=02:00:00
+#PBS -q normal
+#PBS -W umask=022
+#PBS -l wd
+#PBS -o ./PBS_logs/step2_<cohort_name>_<N>s_<PC>pcSubsample.o
+#PBS -e ./PBS_logs/step2_<cohort_name>_<N>s_<PC>pcSubsample.e
+#PBS -l storage=<lstorage>
+
+module load nci-parallel/1.0.0a
+module load singularity
+
+set -e
+
+INPUTS=./Inputs/2_preliminary_analysis.inputs
+
+export SINGULARITY_TMPDIR=./tmp
+export SINGULARITY_CACHEDIR=./cache
+
+mkdir -p ${SINGULARITY_TMPDIR} ${SINGULARITY_CACHEDIR}
+
+SCRIPT=./Scripts/2_preliminary_analysis.sh
+NCPUS=12 # CPUs per parallel task
+
+
+
+#########################################################
+# Do not edit below this line
+#########################################################
+
+M=$(( PBS_NCI_NCPUS_PER_NODE / NCPUS )) #tasks per node
+
+sed "s|^|${SCRIPT} |" ${INPUTS} > ${PBS_JOBFS}/input-file
+
+mpirun --np $((M * PBS_NCPUS / PBS_NCI_NCPUS_PER_NODE)) \
+        --map-by node:PE=${NCPUS} \
+        nci-parallel \
+        --verbose \
+        --input-file ${PBS_JOBFS}/input-file
+

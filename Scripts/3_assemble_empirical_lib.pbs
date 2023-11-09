@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Very fast and light for rt-profiling. 
+# Testing showed zero benefit for smart-profiling.
+
+#---------------------------- 
+
+#---------------------------- 
+
+#PBS -P <project>
+#PBS -N step3
+#PBS -l ncpus=<NCPUS>
+#PBS -l mem=<MEM>GB
+#PBS -l walltime=01:00:00
+#PBS -l jobfs=10GB
+#PBS -q normal
+#PBS -W umask=022
+#PBS -l wd
+#PBS -o ./PBS_logs/step3_<cohort_name>_<N>s.o
+#PBS -e ./PBS_logs/step3_<cohort_name>_<N>s.e
+#PBS -l storage=<lstorage>
+
+
+module load singularity
+
+set -e
+
+#---------------------------- 
+
+#---------------------------- 
+# I/O (hard-coded, please do not change) 
+
+wiff_dir=Raw_data
+temp=2_quant # output of step 2
+outdir=3_empirical_library
+
+mkdir -p ${outdir}
+
+#---------------------------- 
+
+#---------------------------- 
+# Inputs auto-updated when the setup script is run:
+
+wine_tar=dot_wine.tar
+wine_image=<custom_built_pwiz.sif>
+
+# Input library file (non-cohort specific, either user-supplied or created by optional step 1)
+spectral_lib=<speclib>
+
+# Output library file, created from sample data, fasta and sample data --> cohort specific
+# This variable holds the file name, full path is added at the diann run command 
+empirical_lib=<emp_lib>
+
+
+#---------------------------- 
+
+#---------------------------- 
+# Establish scan window, mass accuracy and MS1 mass accuracy parameters:
+
+scan_window=<value>
+mass_acc=<value>
+ms1_acc=<value>
+
+### Add the scan window and 2 mass acc params into one string: 
+if [[ $scan_window  =~ ^[0-9]+$ ]]
+then  
+        windows="--window ${scan_window}"
+elif [[ $scan_window  =~ ^auto$ ]]
+then
+        windows="--individual-windows"
+fi
+
+if [[ $mass_acc  =~ ^[0-9.]+$ ]]
+then  
+        massacc="--mass-acc ${mass_acc}"
+elif [[ $mass_acc  =~ ^auto$ ]]
+then
+        massacc="--individual-mass-acc --quick-mass-acc"
+fi
+
+massacc_and_windows="${windows} ${massacc}"
+
+if [[ $ms1_acc =~ [1-9] ]] # Setup script ensures ms1_acc can only match numbers so can use this relaxed pattern here safely to easily bypass zero while allowing for non-integers
+then
+	massacc_and_windows+=" --mass-acc-ms1 ${ms1_acc}"
+fi
+
+
+#----------------------------
+
+#----------------------------  
+# Set up wine folder on jobfs:
+
+tar xf ${wine_tar} -C ${PBS_JOBFS} 
+WINEPREFIX=${PBS_JOBFS}/dot_wine
+diann_exe=${WINEPREFIX}/drive_c/DIA-NN/1.8.1/DiaNN.exe
+
+#----------------------------
+
+#---------------------------- 
+# Run DiaNN.exe with Wine singularity container:
+
+extra_flags=
+
+singularity exec \
+        --env WINEPREFIX=${WINEPREFIX} \
+        --env WINEDEBUG=-all \
+        ${wine_image} \
+        wine \
+        ${diann_exe} \
+	--dir ${wiff_dir} \
+        --lib ${spectral_lib} \
+        --threads ${PBS_NCPUS} \
+        --out ${outdir}/${empirical_lib}.report \
+	--out-lib ${outdir}/${empirical_lib} \
+        --verbose 4 \
+        --rt-profiling \
+        --temp ${temp} \
+        --use-quant \
+        --gen-spec-lib \
+        ${massacc_and_windows} \
+	${extra_flags} > ./Logs/3_assemble_empirical_lib.log 2>&1	
+
+#-----------------------------------------
