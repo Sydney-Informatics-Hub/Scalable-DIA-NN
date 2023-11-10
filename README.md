@@ -5,11 +5,11 @@
 This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
 The Windows version of the DIA-NN tool is used, in order to negate the need to convert wiff files to mzML, which proved to have [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777
-). Wine PC emulator is used to run Windows DIA-NN on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), a Linux platform. We have utilised the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses) for this since it conveniently contains Wine and Mono. 
+). Wine PC emulator is used to run Windows DIA-NN on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), a Linux platform. 
 
 Native DIA-NN processes the input samples in series. This workflow has been created to run these steps in parallel, to massively speed up the analysis of large cohorts and avoid the need for processing in batches and downstream batch correction. 
 
-To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue #164](https://github.com/bigbio/quantms/issues/164). Quantms is intended to be a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here. Further, our workflow takes wiff input where quantms requires the extra 1-2 hour step of converting wiff to mzML, plus the concomitant negative effect on output.
+To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue](https://github.com/bigbio/quantms/issues/164). Quantms is intended to be a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here. Further, our workflow takes wiff input where quantms requires the extra 1-2 hour step of converting wiff to mzML, plus the concomitant negative effect on output.
 
 ### Portability
 
@@ -27,7 +27,7 @@ Some parameters are hard-coded within this workflow and some are specified by th
 
 Parameters which have been hard-coded (may change when Nextflowed):
 
-- `rt-profiling` (smart profiling yileded no benefit for a much slower run time) 
+- `rt-profiling` (smart profiling yielded no benefit for a much slower run time) 
 - `pg-level 2`
 - `qvalue 0.01` 
 
@@ -48,7 +48,23 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 
 ### Input requirements
 
+#### Data
 In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
+
+#### DIA-NN resources
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
+
+We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. 
+
+Each task must have its own copy of this Wine DIA-NN folder. The scripts unpack `dot_wine.tar` to Gadi's `jobfs` for each task. Currently, we do not have this file publicly available (2 GB). Please contact us to arrange access to a copy. 
+
+#### Wine singularity container
+The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
+
+* [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
+* [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). This requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
+
+
 
 ### Overview of workflow steps
 
@@ -87,8 +103,8 @@ The initial release of this workflow included a method to scale by batching, on 
 - A spectral library file
     - If not available, can be generated at step 1
     - This file is not cohort-specific, so it can be re-used across multiple experiments  
-- Tar archive containing the PC version of DIA-NN [(included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
-- Singularity container with Wine and Mono 
+- [Tar archive](#dia-nn-resources) containing the PC version of DIA-NN [(soon to be included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
+- [Singularity container](#wine-singularity-container) with Wine and Mono 
 
 ### 0. Setup
 
@@ -116,12 +132,12 @@ Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following co
 - `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method. 
 - `mass_accuracy` :  enter 'auto' or a fixed value (floating point or integer). As above.
 - `ms1_acc` :  enter 'auto' or a fixed value (floating point or integer). As above.
-- `missing` : integer 0-100. Optioanlly, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
+- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
 - `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:
 - `project` : Your NCI project code. This will be added to the PBS scripts for accounting.
 - `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included.
-- `wine_tar` : path to the Wine tar archive containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. 
-- `wine_image` : path to the Proteowizard singularity container (see setup details above). This container contains Wine and Mono, and is used to run the PC DIA-NN in the above tar archive. 
+- `wine_tar` : path to the [Wine tar archive](#dia-nn-resources) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. Please contact us for a copy. 
+- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive. 
 
 Once these configurations have been made, save the script and submit:
 
@@ -141,7 +157,7 @@ If you have a spectral library previously made frm your proteome fasta, that can
 
 This step performs preliminary quantification of all input samples in parallel, using the provided in-silico spectral library. 
 
-#### 2. With 'subsampling'
+#### With 'subsampling'
 
 If `subsample` was set to 'true' in the setup script, 10% (or whatever percentage user defined) of samples have been selected and printed to a list: `Inputs/2_preliminary_analysis_subsample.list`, and input configurations for these samples printed to `Inputs/2_preliminary_analysis.inputs`. 
 
@@ -172,7 +188,7 @@ perl Scripts/2_subsample_averages.pl
 
 This will report the averages derived from the subsamples, and update them to all scripts in the workflow. The workflow is to be resumed from step 2, with all samples in cohort (including the subsamples). The above perl script also updates the inputs configuration file for step 2 to include all samples in cohort. Now continue to the next section. 
 
-#### 2. Run step 2 on all samples
+#### Run step 2 on all samples
 
 If `subsample` was set to 'false' during setup: you have entered fixed values or 'auto' for scan window, mass acuracy and MS1 accuracy. In either case, or if you have just completed the 'with subsampling' section above, this step is the same. 
 
@@ -203,10 +219,11 @@ This is a non-parallel job that reads all the quantification files generated at 
 
 Example resource usage:
 
-- 146 samples, 12 CPU, 'normal' queue: 19 GB RAM, 14 minutes walltime
-- 1530 samples, 48 CPU, 'normal' queue: 120 GB RAM, 5 hours 35 minutes walltime
+- 146 scanning SWATH samples, 12 CPU 'normal' queue: 14 minutes, 19 GB RAM
+- 1530 scanning SWATH samples, 48 CPU 'normal' queue: 5 hours 35 minutes, 120 GB RAM
+- 1381 non-scanning SWATH samples, 48 CPU 'normal' queue: 8  minutes, 14 GB RAM
 
-As cohort size increases, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
+As cohort size increases for large scanning SWATH samples, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
 
 Update resources in `Scripts/3_assemble_empirical_lib.pbs` then submit:
 ```
@@ -239,6 +256,8 @@ $ tail Logs/3_assemble_empirical_lib.log
 [334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
 Finished
 ```
+Note that the message "Library contains 0 proteins, and 0 genes" within the log output is expected and benign. This does not affect the results. Playing around with parameters during testing, we were able to get this message to disappear, however the downstream results produced fewer genes than the version of parameters which yielded this unsettling message. There are genes and proteins in the library. 
+
 - Output directory contains these 5 files:
 ```
 $ ls -lh 3_empirical_library/
@@ -297,8 +316,9 @@ This step reads the final quantification files and cohort-specific spectral libr
 
 Example resource usage:
 
-- 146 samples, 24 CPU 'normal' queue: 12 minutes, 17 GB RAM
-- 1530 samples, 28 CPU 'normalbw' queue: 7 hrs 41 mins, 104 GB RAM 
+- 146 samples scanning SWATH, 24 CPU 'normal' queue: 12 minutes, 17 GB RAM
+- 1530 samples scanning SWATH, 28 CPU 'normalbw' queue: 7 hrs 41 mins, 104 GB RAM 
+- 1381 samples non-scanning SWATH, 24 CPU 'normal queue: 9 minutes, 15 GB RAM
 
 As cohort size increases, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
 
@@ -318,7 +338,7 @@ $ grep Exit PBS_logs/step5_MM_Complete_Liver_Proteomics_1530s.o
 - No errors in PBS error log:
 ```   
 $ wc -l PBS_logs/step5_MM_Complete_Liver_Proteomics_1530s.e 
-0 PBS_logs/step5_run3_wiff_146s.e
+0 PBS_logs/step5_MM_Complete_Liver_Proteomics_1530s.e
 ```
 
 - Log file describes matrix files and ends in 'Finished':
@@ -368,4 +388,4 @@ This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (
 
 Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
 
-Updating to a Wine 7 container (currently using 6.8) may also help, and possibly overcome the DONE_BLOCKING errors. 
+Updating to a Wine 8 container (currently using 7.0.0) may also help, and possibly overcome the DONE_BLOCKING errors. 
