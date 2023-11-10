@@ -5,7 +5,7 @@
 This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
 The Windows version of the DIA-NN tool is used, in order to negate the need to convert wiff files to mzML, which proved to have [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777
-). Wine PC emulator is used to run Windows DIA-NN on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), a Linux platform. We have utilised the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses) for this since it conveniently contains Wine and Mono. 
+). Wine PC emulator is used to run Windows DIA-NN on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), a Linux platform. 
 
 Native DIA-NN processes the input samples in series. This workflow has been created to run these steps in parallel, to massively speed up the analysis of large cohorts and avoid the need for processing in batches and downstream batch correction. 
 
@@ -48,7 +48,23 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 
 ### Input requirements
 
+#### Data
 In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
+
+#### DIA-NN resources
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
+
+We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. 
+
+Each task must have its own copy of this Wine DIA-NN folder. The scripts unpack `dot_wine.tar` to Gadi's `jobfs` for each task. Currently, we do not have this file publicly available (2 GB). Please contact us to arrange access to a copy. 
+
+#### Wine singularity container
+The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
+
+* [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
+* [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). This requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
+
+
 
 ### Overview of workflow steps
 
