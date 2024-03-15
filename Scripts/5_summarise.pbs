@@ -14,7 +14,7 @@
 #PBS -l ncpus=<NCPUS>
 #PBS -l mem=<MEM>GB
 #PBS -l walltime=02:00:00
-#PBS -l jobfs=<JOBFS>GB
+#PBS -l jobfs=10GB
 #PBS -q normal
 #PBS -W umask=022
 #PBS -l wd
@@ -44,12 +44,11 @@ mkdir -p ${outdir}
 #---------------------------- 
 # Inputs auto-updated when the setup script is run:
 
-wine_tar=dot_wine.tar
-wine_image=<custom_built_pwiz.sif>
-fasta=<fasta>
+wine_tar=<dot_wine.tar>
+wine_image=<wine_sif>
+fasta_var_string=" "
 empirical_lib=<empirical_lib>
 final_out=<cohort_name>_<N>s_diann_report.tsv
-
 
 #---------------------------- 
 
@@ -59,7 +58,6 @@ final_out=<cohort_name>_<N>s_diann_report.tsv
 scan_window=<value>
 mass_acc=<value>
 ms1_acc=<value>
-
 
 if [[ $scan_window  =~ ^[0-9]+$ ]]
 then  
@@ -100,7 +98,7 @@ diann_exe=${WINEPREFIX}/drive_c/DIA-NN/1.8.1/DiaNN.exe
 #---------------------------- 
 # Run DiaNN.exe with Wine singularity container:
 
-extra_flags=
+extra_flags=""
 
 singularity exec \
         --env WINEPREFIX=${WINEPREFIX} \
@@ -110,7 +108,7 @@ singularity exec \
         ${diann_exe} \
 	--dir ${wiff_dir} \
 	--lib ${libdir}/${empirical_lib} \
-	--fasta ${fasta} \
+	${fasta_var_string} \
         --threads ${PBS_NCPUS} \
         --verbose 4 \
 	--temp ${temp} \

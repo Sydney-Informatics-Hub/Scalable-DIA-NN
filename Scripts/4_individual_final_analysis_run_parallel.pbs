@@ -19,7 +19,7 @@
 #PBS -W umask=022
 #PBS -l wd
 #PBS -o ./PBS_logs/step4_<cohort_name>_<N>s.o
-#PBS -e ./PBS_logs/step4_<cohort_name>_<N>s.e
+#PBS -e ./PBS_logs/step4_<cohort_name>_<N>s.o
 #PBS -l storage=<lstorage>
 
 
@@ -35,6 +35,7 @@ mkdir -p ${SINGULARITY_TMPDIR} ${SINGULARITY_CACHEDIR}
 
 SCRIPT=./Scripts/4_individual_final_analysis.sh
 INPUTS=./Inputs/4_individual_final_analysis.inputs
+
 NCPUS=4 # CPUs per parallel task 
 
 

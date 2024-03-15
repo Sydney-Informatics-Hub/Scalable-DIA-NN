@@ -16,7 +16,7 @@ subsample=<value>
 # check script can be used for subsample or full step 2 run
 # Assumption: that the log to query is the latest created
 
-log_prefix=<value>
+log_prefix=<prefix>
 
 o_log=$(ls -lhtr PBS_logs/$log_prefix*.o | tail -1 | awk '{print $9}')
 e_log=$(ls -lhtr PBS_logs/$log_prefix*.e | tail -1 | awk '{print $9}')
@@ -74,7 +74,7 @@ failed_samples=()
 while read TASK
 do
 	# will only return true if exit status is 0
-	task_exit=$( grep $TASK $e_log | grep "exited with status 0")
+	task_exit=$( grep "$TASK" $e_log | grep "exited with status 0")
 	if ! [[ $task_exit ]]
 	then
 		sample=$( echo $TASK | cut -d ',' -f 4 | xargs basename | sed 's/\.wiff//')
