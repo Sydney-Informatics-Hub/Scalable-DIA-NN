@@ -1,5 +1,17 @@
 # Scalable DIA-NN 
 
+## Work in progress 15-03-2024: specific notes for library-dev branch
+
+This set of scripts has not been tested post-push. Last test was December 2023 so it's a bit hazy. 
+
+Need to re-test all possible library options (3 options) and the multi-fasta option, from scratch.
+
+Also need to update this README - lots of comments and headers in the scripts contain the useful content that needs to be added here.
+
+Need to add parameter flexibility for step 1, with var mods, charge values, etc. 
+
+
+
 ## Introduction
 
 This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
