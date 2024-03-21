@@ -66,20 +66,18 @@ singularity exec \
 	--reannotate \
 	${fasta_var_string} \
 	--fasta-search \
-	--min-fr-mz 200 \
-	--max-fr-mz 1800 \
-	--met-excision \
-	--cut K*,R* \
-	--missed-cleavages 1 \
-	--min-pep-len 9 \
-	--max-pep-len 30 \
-	--min-pr-mz 300 \
-	--max-pr-mz 1800 \
-	--min-pr-charge 1 \
-	--max-pr-charge 4 \
-	--unimod4 \
-	--var-mods 1 \
-	--var-mod UniMod:35,15.994915,M \
+        --min-fr-mz 200 \
+        --max-fr-mz 1800 \
+        --met-excision \
+        --cut K*,R* \
+        --missed-cleavages 1 \
+        --min-pep-len 7 \
+        --max-pep-len 30 \
+        --min-pr-mz 400 \
+        --max-pr-mz 900 \
+        --min-pr-charge 1 \
+        --max-pr-charge 4 \
+        --unimod4 \
 	${extra_flags} > Logs/1_generate_insilico_lib.log 2>&1
 	
 #-----------------------------------------
