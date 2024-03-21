@@ -1,17 +1,5 @@
 # Scalable DIA-NN 
 
-## Work in progress 15-03-2024: specific notes for library-dev branch
-
-This set of scripts has not been tested post-push. Last test was December 2023 so it's a bit hazy. 
-
-Need to re-test all possible library options (3 options) and the multi-fasta option, from scratch.
-
-Also need to update this README - lots of comments and headers in the scripts contain the useful content that needs to be added here.
-
-Need to add parameter flexibility for step 1, with var mods, charge values, etc. 
-
-
-
 ## Introduction
 
 This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
@@ -25,9 +13,9 @@ To tease apart the DIA-NN run command into discrete jobs, we followed the steps 
 
 ### Portability
 
-As at 2023-10-19, this workflow uses `nci-parallel` utility to parallelise processing across the NCI Gadi cluster. As such, it curently works only on NCI Gadi.
+This workflow uses `nci-parallel` utility to parallelise processing across the NCI Gadi cluster. As such, it curently works out of the box only on NCI Gadi.
 
-Users are free to adapt it for use on other platforms, for example by replacing the `nci-parallel` parallelisation method with Open-MPI or job arrays. 
+Users are free to adapt it for use on other platforms, for example by replacing the `nci-parallel` parallelisation method with Open-MPI, job arrays, or simple for-loops. 
 
 A future release will see the workflow written in Nextflow. This imminent release will be portable. 
 
@@ -56,7 +44,7 @@ By adding `--int-removal 0`, `--peak-center` and `--no-ifs-removal`, this best m
 -  `MBR`, `reannotate`, `fasta digest` and `deep learning` are checked
 - `heuristic protein inference` and `no shared spectra` are unchecked  
 
-The `scanning-swath` parameter should be applied if the data was generated as ScanningSWATH. 
+The `scanning-swath` parameter should be applied if the data was generated as ScanningSWATH. When running the DIA-NN GUI, this is detected automatically - note that this is NOT the case when running this workflow. 
 
 ### Input requirements
 
@@ -76,17 +64,26 @@ The DIA-NN executable requires Wine with Mono to run. We have used these contain
 * [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
 * [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). This requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
 
+To obtain the uvarc wine container:
+
+```
+module load singularity
+singularity pull docker://uvarc/wine:7.0.0
+```
+
+During your parameter configurations (step 0) add the path to the resultant image file for the 'wine_image' parameter. 
+
 
 
 ### Overview of workflow steps
 
-0. Set up: user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
-1. Optional spectral library: since this is not cohort specific and based only on a fasta and specified digest parameters, user can supply previosuly generated spectral library, or create one here. 
-2. Parallel initial quantification of samples, using the input spectral library 
-3. Creation of cohort-specific empirical library
-4. Parallel final quantification of samples, using the empirical library 
-5. Creation of matrix and stats output files
-6. Optional filtering step to remove genes with high missing values
+0. **Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
+1. **Optional in-silico library creation:** since this is not cohort specific and based only on a fasta and specified digest parameters, user can supply previously generated in-silico library, such as from a previous DIA-NN run with this fasta, or create one here. Use of an in-silico library from fasta digest results ina "library free" analysis. If an experimentally produced, cohort-specific spectral library is available, this can be used alone for a "library based" analysis, or in combination with an in-silicio library for a "belts and braces" approach.
+2. **Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
+3. **Creation of cohort-specific empirical library**
+4. **Parallel final quantification of samples**, using the cohort-specific empirical library 
+5. **Creation of gene matrix and statistics output files**
+6. **Optional filtering** step to remove genes with high missing values
 
 ### Random task errors under Wine
 
@@ -98,11 +95,6 @@ Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE
 
 The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
-### Deprecated batching workflow
-
-The initial release of this workflow included a method to scale by batching, on Ronin/AWS and Gadi. This method is not recommended as it has inherent batch effects that are difficult to resolve. Batch correction steps were not included in the workflow. The instructions have been retained in [Deprecated_RoninAWS](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/tree/cali-dev/Deprecated_RoninAWS). 
-
-
 ## User guide
 
 
@@ -111,12 +103,52 @@ The initial release of this workflow included a method to scale by batching, on 
 - A proteome fasta file
 - A parent directory containing all of the wiff and wiff.scan files to be analysed
     - Data can be in sub-directories within the parent directory
-    - Data can be symlinked 
-- A spectral library file
-    - If not available, can be generated at step 1
-    - This file is not cohort-specific, so it can be re-used across multiple experiments  
+    - Data can be symlinked  
 - [Tar archive](#dia-nn-resources) containing the PC version of DIA-NN [(soon to be included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
 - [Singularity container](#wine-singularity-container) with Wine and Mono 
+
+### Library method options
+
+This workflow has three library options:
+
+#### 1. Library-based
+
+A cohort-specific, experimentally generated spectral library is available for the experiment. 
+
+To perform a library-based analysis, library settings for the parameter configuration performed at step 0 will be:
+
+``` 
+insilico_lib_prefix=false
+spectral_lib=<filepath of experimental spectral library>
+```
+
+Step 1 of the workflow is skipped. 
+
+#### 2. Library free
+
+No cohort-specific, experimentally generated spectral library is available for the experiment, so an in-silicio spectral library created from a digest of the proteome fasta is required. 
+
+To perform library free analysis, library settings for the parameter configuration performed at step 0 will be:
+
+```
+insilico_lib_prefix=<desired library prefix name>
+spectral_lib=false
+```
+
+Step 1 of the workflow is required.
+
+#### 3. Belts-and-braces
+
+To use *both* a fasta digest as well as a cohort-specific experimentally generated spectral library, apply the following settings at step 0:
+
+```
+insilico_lib_prefix=<desired library prefix name>
+spectral_lib=<ilepath of experimental spectral library>
+```
+
+Step 1 of the workflow is required. 
+
+
 
 ### 0. Setup
 
@@ -128,28 +160,30 @@ cd /scratch/<project>
 
 Clone the repository and change into it:
 ```
-git clone git@github.com:Sydney-Informatics-Hub/Scalable-DiaNN.git
-cd Scalable-DiaNN
+git clone git@github.com:Sydney-Informatics-Hub/Scalable-DIA-NN.git
+cd Scalable-DIA-NN
 ```
 
 Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following configuration options:
 
-- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data.
-- `cohort` : cohort name, to be used as prefix for output files.
-- `spectral_lib` : full filepath of the spectral library. This is not sample/cohort specific, so it can be pre-made and re-used across multiple experiments. If no spectral library, enter 'auto' and ensure to run Step 1: `1_generate_insilico_lib.pbs`. 
-- `empirical_lib` : Empirical library output file name prefix. The number of samples used in its creation will be automatically apended to the prefix. This is cohort-specific: generated from the non-specific `spectral_lib` and the sample quantification outputs from step 2.
-- `fasta` : proteome fasta for the target species. Must be the same as used to make the `spectral_lib`. 
-- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored. 
-- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples. 
-- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method. 
+- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data
+- `cohort` : cohort name, to be used as prefix for output files
+- `insilico_lib_prefix` : see [Library method options](#library-method-options)
+- `spectral_lib` : see [Library method options](#library-method-options)
+- `fasta` : proteome fasta for the target species. Multiple fasta (for example, a proteome plus a contaminants fasta) can be provided as a single string separated by a comma, eg `fasta=/path/to/fasta1.fasta,/path/to/fasta2.fasta)`
+- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored 
+- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples 
+- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method 
 - `mass_accuracy` :  enter 'auto' or a fixed value (floating point or integer). As above.
 - `ms1_acc` :  enter 'auto' or a fixed value (floating point or integer). As above.
-- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
+- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes
 - `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:
-- `project` : Your NCI project code. This will be added to the PBS scripts for accounting.
-- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included.
-- `wine_tar` : path to the [Wine tar archive](#dia-nn-resources) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. Please contact us for a copy. 
-- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive. 
+- `project` : Your NCI project code. This will be added to the PBS scripts for accounting
+- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included
+- `wine_tar` : path to the [Wine tar archive](#dia-nn-resources) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. **PATH TO LFS OBJECT TBA** 
+- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive
+- `diann_image` : path to diann v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank
+
 
 Once these configurations have been made, save the script and submit:
 
@@ -161,13 +195,47 @@ User-specified parameters will be updated to the workflow. The only script edits
 
 ### 1. In silico library generation (optional) 
 
-If you have a spectral library previously made frm your proteome fasta, that can be used. If not, run this step. 
+Step 1 is required for a library free or 'belts and braces' analysis, but not for library-based - see [Library method options](#library-method-options).
 
-[Functionality TBA](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/5). 
+If performing library-based analysis against a cohort-specific experimentally generated spectral library, skip to [step 2](#2-preliminary-quantification-parallel).
+
+
+Begin by confirming the digest parameters you would like to apply by checking the DIA-NN [command-line reference](https://github.com/vdemichev/DiaNN?tab=readme-ov-file#command-line-reference). If you have a previous GUI DIA-NN library free run log which applied settings you want to use, you can extract these from the diann.exe command contained at the start of the log. 
+
+Manually adjust the digest parameters in `Scripts/1_generate_insilico_lib.pbs` to reflect your desired settings. 
+
+The script out of the box has defaults of:
+```
+        --min-fr-mz 200 \
+        --max-fr-mz 1800 \
+        --met-excision \
+        --cut K*,R* \
+        --missed-cleavages 1 \
+        --min-pep-len 7 \
+        --max-pep-len 30 \
+        --min-pr-mz 400 \
+        --max-pr-mz 900 \
+        --min-pr-charge 1 \
+        --max-pr-charge 4 \
+        --unimod4
+```
+
+
+Once the digest settings have been tailored to your needs, submit step 1:
+```
+qsub Scripts/1_generate_insilico_lib.pbs
+```
+
+This will create an insilico spectral library and log file:
+```
+./1_insilico_library/<insilico_lib_prefix>.predicted.speclib
+./1_insilico_library/<insilico_lib_prefix>.log.txt
+```
+
 
 ### 2. Preliminary quantification (parallel)
 
-This step performs preliminary quantification of all input samples in parallel, using the provided in-silico spectral library. 
+This step performs preliminary quantification of all input samples in parallel, using either the insilico spectral library generated by fasta digest at step 1 (library free), or the experimentally generated spectral library (library-based), or both ("belts and braces"). Note that for this and subsequent steps, you do not need to manually edit the library or other inputs - this is performed when the setup script is executed. Only step 1 digest parameters need manual adjustment, and the resource requests for the PBS jobs according to cohort size.  
 
 #### With 'subsampling'
 
@@ -180,7 +248,7 @@ Save the script, then submit:
 Scripts/2_preliminary_analysis_run_parallel.pbs
 ```
 
-Run times up to around 40 minutes have been observed for large Scanning SWATH files. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
+Run times up to 40 minutes have been observed for large Scanning SWATH files. Zeno SWATH files up to 10 minutes each. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
 
 After the subsampling job has finished, run the checker script:
 
