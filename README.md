@@ -2,18 +2,35 @@
 
 ### Overview
 
-This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
+This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a popular tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
-The Windows version of the DIA-NN tool is used, in order to negate the need to convert wiff files to mzML, which proved to have [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777
-). Wine PC emulator is used to run Windows DIA-NN on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), a Linux platform. 
+Native DIA-NN is designed to utilise up to all cores on a single node, and does not currently have multi-node capability. For experiments with high numbers of samples, processing DIA data can be time-consuming and require batch processing followed by batch correction. This workflow has been created to enable large sample cohorts to be analysed with DIA-NN as a single batch on HPC, thereby eliminating batch effects (Fig. 1) and vastly reducing compute walltime (Fig. 2). We have achieved speedups of 61X and 145X on large cohort Scanning SWATH and Zeno SWATH datasets, respectively. 
 
-Native DIA-NN processes the input samples in series. This workflow has been created to run these steps in parallel, to massively speed up the analysis of large cohorts and avoid the need for processing in batches and downstream batch correction. 
+<figure>
+    <img src=.figs/batch_effects.png width="75%" height="75%">
+    <figcaption><b>Fig.1 a.</b>  Batch-processing of 1530 Scanning SWATH samples over 10 batches using DIA-NN GUI on PC. <b>b.</b> Processing the same 1530 samples using this Scalable-DIA-NN workflow on HPC (bottom) </figcaption>
+</figure> 
 
-The below figure demonstrates the clear batch effects produced when running batches of samples through the DIA-NN GUI, and the lack of such batch effects when utilising this parallel workflow:
+</br>
 
-![batch_effects](.figs/batch_effects.png)
+<figure>
+    <img src=.figs/speedup.png width="75%" height="75%">
+    <figcaption><b>Fig.1</b> Comparison of compute between PC GUI DIA-NN and Scalable-DIA-NN over two large-cohort datasets</figcaption>
+</figure>
 
-To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue](https://github.com/bigbio/quantms/issues/164). Quantms is intended to be a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here. Further, our workflow takes wiff input where quantms requires the extra 1-2 hour step of converting wiff to mzML, plus the concomitant negative effect on output.
+</br>
+
+
+To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue](https://github.com/bigbio/quantms/issues/164). Quantms is a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here.
+
+Importantly, our workflow differs from quantms as it takes .wiff files as input,  where quantms requires mzML input. Converting .wiff files to the universal mzML format has two important downsides:
+
+- Converting wiff to mzML requires 1-2 hours compute per sample and necessitates a double-up of raw data stored
+- We have found susbstantial [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777) when processing the same samples from wiff or mzML format with identical run parameters
+
+To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive [available here](TBA). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.    
+
+</br>
 
 <details>
 <summary><b>Portability</b></summary>
@@ -24,7 +41,10 @@ This workflow uses `nci-parallel` utility to parallelise processing across the N
 
 Users are free to adapt it for use on other platforms, for example by replacing the `nci-parallel` parallelisation method with Open-MPI, job arrays, or simple for-loops. 
 
+If adapting this workflow to another compute environment, please refer to the earlier notes regarding issues executing the Wine DIA-NN installation from Lustre.
+
 A future release will see the workflow written in Nextflow. This imminent release will be portable. 
+
 
 </details>
 
