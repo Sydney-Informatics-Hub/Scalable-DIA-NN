@@ -7,7 +7,7 @@ This workflow implements the CLI installation of [DIA-NN](https://github.com/vde
 Native DIA-NN is designed to utilise up to all cores on a single node, and does not currently have multi-node capability. For experiments with high numbers of samples, processing DIA data can be time-consuming and require batch processing followed by batch correction. This workflow has been created to enable large sample cohorts to be analysed with DIA-NN as a single batch on HPC, thereby eliminating batch effects (Fig. 1) and vastly reducing compute walltime (Fig. 2). We have achieved speedups of 61X and 145X on large cohort Scanning SWATH and Zeno SWATH datasets, respectively. 
 
 <figure>
-    <img src=.figs/batch_effects.png width="75%" height="75%">
+    <img src=.figs/batch_effects.png>
     <figcaption><b>Fig.1 a.</b>  Batch-processing of 1530 Scanning SWATH samples over 10 batches using DIA-NN GUI on PC.  <b>b.</b> Processing the same 1530 samples using this Scalable-DIA-NN workflow on HPC. </figcaption>
 </figure>  
 
