@@ -55,11 +55,9 @@ A future release will see the workflow written in Nextflow. This imminent releas
 
 ## CPU efficiency
 
-This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (which was not written to be parallelised in this way) and in part due to running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
+This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (which was not written to be parallelised in this way) and in part due to running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff &rarr; mzML conversion step, as well as the [improvement in results](https://github.com/vdemichev/DiaNN/issues/777) when using wiff input. 
 
-Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
-
-Updating to a Wine 8 container (currently using 7.0.0) may also help, and possibly overcome the DONE_BLOCKING errors. 
+Updating to a Wine 8 container (currently using 7.0.0) may also help, and remains a plan for future testing. 
 
 </details>
 
@@ -142,13 +140,19 @@ The parallel steps (where these are most often observed, due to sheer numbers) e
 
 ## Overview of workflow steps
 
-0. **Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
-1. **Optional in-silico library creation:** see [Library method options](#library-method-options)
-2. **Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
-3. **Creation of cohort-specific empirical library**
-4. **Parallel final quantification of samples**, using the cohort-specific empirical library 
-5. **Creation of gene matrix and statistics output files**
-6. **Optional filtering** step to remove genes with high missing values
+**0. Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
+
+**1. Optional in-silico library creation:** see [Library method options](#library-method-options)
+
+**2. Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
+
+**3. Creation of cohort-specific empirical library**
+
+**4. Parallel final quantification of samples**, using the cohort-specific empirical library 
+
+**5.  Creation of gene matrix and statistics output files**
+
+**6.  Optional filtering** step to remove genes with high missing values
 
 </details>
 
@@ -198,20 +202,13 @@ Step 1 of the workflow is required.
 
 #### Library choice
 
-Which library method is best suited to your data depends on many factors. Below is a summary of gene counts from a 146-sample subset of a larger cohort, generated from Scanning SWATH wiff files: 
+Library-free analysis is [recommended by DIA-NN developers](https://github.com/vdemichev/DiaNN?tab=readme-ov-file#library-free-search) for most experiments.
+
+ We compared library-free vs library-based for the 1530-sample cohort referenced in Figs 1 and 2: 
+
+ **results tba**
 
 
-| Library method        | Unique genes | Filtered genes |
-|------------------------|--------------|----------------|
-| Library based          | 2945         | 2848           |
-| Library free           | 2974         | 2816           |
-| 'Belts and braces'     | 2753         | 2655           |
-| GUI 'Belts and braces' | 3570         | 3114           |
-
-
-It is unclear why the GUI generated such a high value for this subset. When the larger cohort (1530 samples) was analysed in 10 batches on the PC, 2945 filtered genes were detected after batch correction, and the scalable workflow in 'library based' mode yielded 2831 filtered genes. The loss of 114 genes was considered reasonable for the speed-up of 61X (46 days on the PC GUI versus 18 hours on the HPC with this scalable workflow). 
-
-For a Zeno SWATH dataset of 1381 samples, the genes loss ratio was greater (294 vs 411) on HPC compared to GUI, but the speedup was increased to 145X (38 minutes vs 10 days). 
 
 </details>
 
