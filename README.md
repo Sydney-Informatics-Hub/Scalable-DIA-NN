@@ -8,11 +8,11 @@ Native DIA-NN is designed to utilise up to all cores on a single node, and does 
 
 <figure>
     <img src=.figs/batch_effects.png width="75%" height="75%">
-    <figcaption><b>Fig.1 a.</b>  Batch-processing of 1530 Scanning SWATH samples over 10 batches using DIA-NN GUI on PC.</br> <b>b.</b> Processing the same 1530 samples using this Scalable-DIA-NN workflow on HPC. </figcaption>
+    <figcaption><b>Fig.1 a.</b>  Batch-processing of 1530 Scanning SWATH samples over 10 batches using DIA-NN GUI on PC.  <b>b.</b> Processing the same 1530 samples using this Scalable-DIA-NN workflow on HPC. </figcaption>
 </figure>  
 
 
-</br>
+</br></br>
 
 <figure>
     <img src=.figs/speedup.png width="75%" height="75%">
@@ -20,7 +20,7 @@ Native DIA-NN is designed to utilise up to all cores on a single node, and does 
 </figure>  
 
 
-</br> 
+</br></br>
 
 
 To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue](https://github.com/bigbio/quantms/issues/164). Quantms is a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here.
