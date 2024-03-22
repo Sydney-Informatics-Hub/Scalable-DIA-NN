@@ -1,6 +1,6 @@
 # Scalable DIA-NN 
 
-## Introduction
+### Overview
 
 This workflow implements the CLI installation of [DIA-NN](https://github.com/vdemichev/DiaNN) in a highly scalable fashion. DIA-NN is a tool that performs data processing and analysis for data-independent acquistion (DIA) proteomics data and was developed by Demichev, Ralser and Lilley Labs ([Ralser et al. 2020](https://www.nature.com/articles/s41592-019-0638-x)).
 
@@ -15,7 +15,10 @@ The below figure demonstrates the clear batch effects produced when running batc
 
 To tease apart the DIA-NN run command into discrete jobs, we followed the steps recommended by the primary developers of DIA-NN and [quantms](https://quantms.readthedocs.io/en/latest/), described in this [Github issue](https://github.com/bigbio/quantms/issues/164). Quantms is intended to be a scalable nextflow workflow of DIA-NN, but currently does not work on NCI Gadi or Pawsey Nimbus (suspect that it is due to MacOS vs Linux incompatibilities) and hence this workflow was re-created here. Further, our workflow takes wiff input where quantms requires the extra 1-2 hour step of converting wiff to mzML, plus the concomitant negative effect on output.
 
-### Portability
+<details>
+<summary><b>Portability</b></summary>
+
+## Portability
 
 This workflow uses `nci-parallel` utility to parallelise processing across the NCI Gadi cluster. As such, it curently works out of the box only on NCI Gadi.
 
@@ -23,7 +26,25 @@ Users are free to adapt it for use on other platforms, for example by replacing 
 
 A future release will see the workflow written in Nextflow. This imminent release will be portable. 
 
-### Parameters
+</details>
+
+<details>
+<summary><b>CPU efficiency</b></summary>
+
+## CPU efficiency
+
+This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (which was not written to be parallelised in this way) and in part due to running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
+
+Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
+
+Updating to a Wine 8 container (currently using 7.0.0) may also help, and possibly overcome the DONE_BLOCKING errors. 
+
+</details>
+
+<details>
+<summary><b>Parameters</b></summary>
+
+## Parameters
 
 Please refer to the [DIA-NN documentation - command-line reference](https://github.com/vdemichev/DiaNN#command-line-reference) for parameters. **Note that the DIA-NN CLI defaults are not the same as the GUI and you should explicitly set parameters**. Also note that the GUI defaults have changed between DIA-NN versions 1.8.0 and v 1.8.1. 
 
@@ -50,19 +71,24 @@ By adding `--int-removal 0`, `--peak-center` and `--no-ifs-removal`, this best m
 
 The `scanning-swath` parameter should be applied if the data was generated as ScanningSWATH. When running the DIA-NN GUI, this is detected automatically - note that this is NOT the case when running this workflow. 
 
-### Input requirements
+</details>
 
-#### Data
+<details>
+<summary><b>Input requirements</b></summary>
+
+## Input requirements
+
+### Data
 In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
 
-#### DIA-NN resources
+### DIA-NN resources
 PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
 
 We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. 
 
 Each task must have its own copy of this Wine DIA-NN folder. The scripts unpack `dot_wine.tar` to Gadi's `jobfs` for each task. Currently, we do not have this file publicly available (2 GB). Please contact us to arrange access to a copy. 
 
-#### Wine singularity container
+### Wine singularity container
 The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
 
 * [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
@@ -77,19 +103,7 @@ singularity pull docker://uvarc/wine:7.0.0
 
 During your parameter configurations (step 0) add the path to the resultant image file for the 'wine_image' parameter. 
 
-
-
-### Overview of workflow steps
-
-0. **Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
-1. **Optional in-silico library creation:** since this is not cohort specific and based only on a fasta and specified digest parameters, user can supply previously generated in-silico library, such as from a previous DIA-NN run with this fasta, or create one here. Use of an in-silico library from fasta digest results ina "library free" analysis. If an experimentally produced, cohort-specific spectral library is available, this can be used alone for a "library based" analysis, or in combination with an in-silicio library for a "belts and braces" approach.
-2. **Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
-3. **Creation of cohort-specific empirical library**
-4. **Parallel final quantification of samples**, using the cohort-specific empirical library 
-5. **Creation of gene matrix and statistics output files**
-6. **Optional filtering** step to remove genes with high missing values
-
-### Random task errors under Wine
+#### Random task errors under Wine
 
 Random errors may be encountered that look like this:
 
@@ -99,17 +113,25 @@ Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE
 
 The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
-## User guide
+</details>
 
+<details>
+<summary><b>Overview of workflow steps</b></summary>
 
-### Required input files
+## Overview of workflow steps
 
-- A proteome fasta file
-- A parent directory containing all of the wiff and wiff.scan files to be analysed
-    - Data can be in sub-directories within the parent directory
-    - Data can be symlinked  
-- [Tar archive](#dia-nn-resources) containing the PC version of DIA-NN [(soon to be included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
-- [Singularity container](#wine-singularity-container) with Wine and Mono 
+0. **Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
+1. **Optional in-silico library creation:** see [Library method options](#library-method-options)
+2. **Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
+3. **Creation of cohort-specific empirical library**
+4. **Parallel final quantification of samples**, using the cohort-specific empirical library 
+5. **Creation of gene matrix and statistics output files**
+6. **Optional filtering** step to remove genes with high missing values
+
+</details>
+
+<details>
+<summary><b>Library method options</b></summary>
 
 ### Library method options
 
@@ -168,6 +190,25 @@ Which library method is best suited to your data depends on many factors. Below 
 It is unclear why the GUI generated such a high value for this subset. When the larger cohort (1530 samples) was analysed in 10 batches on the PC, 2945 filtered genes were detected after batch correction, and the scalable workflow in 'library based' mode yielded 2831 filtered genes. The loss of 114 genes was considered reasonable for the speed-up of 61X (46 days on the PC GUI versus 18 hours on the HPC with this scalable workflow). 
 
 For a Zeno SWATH dataset of 1381 samples, the genes loss ratio was greater (294 vs 411) on HPC compared to GUI, but the speedup was increased to 145X (38 minutes vs 10 days). 
+
+</details>
+
+<details>
+<summary><b>Detailed user guide</b></summary>
+
+## Detailed user guide
+
+### Required input files
+
+- A proteome fasta file
+- A parent directory containing all of the wiff and wiff.scan files to be analysed
+    - Data can be in sub-directories within the parent directory
+    - Data can be symlinked  
+- [Tar archive](#dia-nn-resources) containing the PC version of DIA-NN [(soon to be included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
+- [Singularity container](#wine-singularity-container) with Wine and Mono 
+
+
+
 
 
 
@@ -483,10 +524,5 @@ This will create 2 additional files in the `5_summarise` output directory:
 
 The filtered unique genes matrix has the same format as the standard DIA-ANN unique genes matrix. The discarded genes file is a 2-column TSV with gene name and % of samples with no value for that gene. 
 
-## A note on efficiency
+</details>
 
-This workflow has fairly poor CPU efficiency, in part to do with DIA-NN itself (which was not written to be parallelised in this way) and in part due to running a PC tool under Wine on a Linux platform. Tasks have approximately double walltime compared to when running Linux DIA-NN on mzML input. However, walltime, KSU and disk is saved from not requiring the wiff --> mzML conversion step, as well as the improvement in results when using wiff input. 
-
-Additional benchmarking will be performed to determine minimum resource requirements per job without further increasing walltime. 
-
-Updating to a Wine 8 container (currently using 7.0.0) may also help, and possibly overcome the DONE_BLOCKING errors. 
