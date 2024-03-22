@@ -7,7 +7,7 @@ This workflow implements the CLI installation of [DIA-NN](https://github.com/vde
 Native DIA-NN is designed to utilise up to all cores on a single node, and does not currently have multi-node capability. For experiments with high numbers of samples, processing DIA data can be time-consuming and require batch processing followed by batch correction. This workflow has been created to enable large sample cohorts to be analysed with DIA-NN as a single batch on HPC, thereby eliminating batch effects (Fig. 1) and vastly reducing compute walltime (Fig. 2). We have achieved speedups of 61X and 145X on large cohort Scanning SWATH and Zeno SWATH datasets, respectively. 
 
 <figure>
-    <img src=.figs/batch_effects.png>
+    <img src=.figs/batch_effects.png width="75%" height="75%">
     <figcaption><b>Fig.1 a.</b>  Batch-processing of 1530 Scanning SWATH samples over 10 batches using DIA-NN GUI on PC.  <b>b.</b> Processing the same 1530 samples using this Scalable-DIA-NN workflow on HPC. </figcaption>
 </figure>  
 
@@ -30,7 +30,7 @@ Importantly, our workflow differs from quantms as it takes .wiff files as input,
 - Converting wiff to mzML requires 1-2 hours compute per sample and necessitates a double-up of raw data stored
 - We have found susbstantial [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777) when processing the same samples from wiff or mzML format with identical run parameters
 
-To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive [available here](TBA). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.    
+To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive [available here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.    
 
 </br>
 
@@ -101,12 +101,15 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 ### Data
 In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
 
-### DIA-NN resources
+### DIA-NN resource
 PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
 
-We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. 
+We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available [here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). Please download to your compute environment and run the checksum.   
 
-Each task must have its own copy of this Wine DIA-NN folder. The scripts unpack `dot_wine.tar` to Gadi's `jobfs` for each task. Currently, we do not have this file publicly available (2 GB). Please contact us to arrange access to a copy. 
+You do not need to untar this archive: each compute task must have its own copy on SSD local to the node storage, and this is managed by the workflow. 
+
+You do need to add its path to the setup script in [step 0](#0-setup).
+
 
 ### Wine singularity container
 The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
@@ -223,7 +226,7 @@ Library-free analysis is [recommended by DIA-NN developers](https://github.com/v
 - A parent directory containing all of the wiff and wiff.scan files to be analysed
     - Data can be in sub-directories within the parent directory
     - Data can be symlinked  
-- [Tar archive](#dia-nn-resources) containing the PC version of DIA-NN [(soon to be included with this repo)](https://github.com/Sydney-Informatics-Hub/Scalable-DiaNN/issues/6)
+- [dot_wine.tar](#dia-nn-resource) containing the PC version of DIA-NN installed with Wine and containing the vendor dll files required for wiff analysis
 - [Singularity container](#wine-singularity-container) with Wine and Mono 
 
 
@@ -261,7 +264,7 @@ Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following co
 - `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:
 - `project` : Your NCI project code. This will be added to the PBS scripts for accounting
 - `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included
-- `wine_tar` : path to the [Wine tar archive](#dia-nn-resources) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. **PATH TO LFS OBJECT TBA** 
+- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. 
 - `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive
 - `diann_image` : path to diann v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank
 
