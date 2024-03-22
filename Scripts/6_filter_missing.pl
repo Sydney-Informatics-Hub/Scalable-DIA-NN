@@ -7,9 +7,8 @@ use strict;
 
 # Auto-updated by setup script:
 my $n = <N>;
-my $cohort = '<cohort_name>';
+my $cohort = <cohort_name>;
 my $missing = <value>;
-
 
 # Hard-coded IO:
 my $matrix = "5_summarise/$cohort\_${n}s_diann_report.unique_genes_matrix.tsv";

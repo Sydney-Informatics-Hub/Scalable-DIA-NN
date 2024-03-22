@@ -14,8 +14,8 @@
 #PBS -N step2-f
 #PBS -l ncpus=<NCPUS>
 #PBS -l mem=<MEM>GB
-#PBS -l jobfs=<JOBGS>GB
-#PBS -l walltime=03:00:00
+#PBS -l jobfs=<JOBFS>GB
+#PBS -l walltime=01:00:00
 #PBS -q normal
 #PBS -W umask=022
 #PBS -l wd
@@ -34,11 +34,9 @@ export SINGULARITY_CACHEDIR=./cache
 mkdir -p ${SINGULARITY_TMPDIR} ${SINGULARITY_CACHEDIR}
 
 
-
 INPUTS=./Inputs/2_preliminary_analysis.inputs-failed
 SCRIPT=./Scripts/2_preliminary_analysis.sh
 NCPUS=12 # CPUs per parallel task
-
 
 
 #########################################################

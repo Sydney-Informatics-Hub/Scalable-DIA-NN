@@ -72,7 +72,7 @@ failed_samples=()
 while read TASK
 do
 	# will only return true if exit status is 0
-	task_exit=$( grep $TASK $e_log | grep "exited with status 0")
+	task_exit=$( grep "$TASK" $e_log | grep "exited with status 0")
 	if ! [[ $task_exit ]]
 	then
 		sample=$( echo $TASK | cut -d ',' -f 4 | xargs basename | sed 's/\.wiff//')

@@ -14,6 +14,7 @@ logDir=`echo $1 | cut -d ',' -f 6`
 scan_window=`echo $1 | cut -d ',' -f 7`
 mass_acc=`echo $1 | cut -d ',' -f 8`
 ms1_acc=`echo $1 | cut -d ',' -f 9`
+fasta_var_string=`echo $1 | cut -d ',' -f 10`
 
 sampleID=$(basename ${wiff%.wiff})
 
@@ -65,7 +66,7 @@ diann_exe=${WINEPREFIX}/drive_c/DIA-NN/1.8.1/DiaNN.exe
 # Run DiaNN.exe with Wine singularity container
 
 # Adding these flags to match the v 1.8.1 GUI defaults (which differ from v 1.8.0):
-extra_flags=
+extra_flags=""
 
 # Removed --scanning-swath from the below command, and added it in to extra flags
 # Remains to be seen if presence in other steps will cause a validity issue
@@ -80,6 +81,7 @@ singularity exec \
         --verbose 4 \
         --lib ${spectral_lib} \
         --f ${wiff} \
+	${fasta_var_string} \
         --threads ${NCPUS} \
         --temp ${temp} \
 	${massacc_and_windows} \

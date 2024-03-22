@@ -14,12 +14,12 @@
 #PBS -l ncpus=<NCPUS>
 #PBS -l mem=<MEM>GB
 #PBS -l jobfs=<JOBFS>GB
-#PBS -l walltime=02:00:00
+#PBS -l walltime=03:00:00
 #PBS -q normal
 #PBS -W umask=022
 #PBS -l wd
-#PBS -o ./PBS_logs/step2_<cohort_name>_<N>s_<PC>pcSubsample.o
-#PBS -e ./PBS_logs/step2_<cohort_name>_<N>s_<PC>pcSubsample.e
+#PBS -o ./PBS_logs/step2_<cohort_name>_<N>s.o
+#PBS -e ./PBS_logs/step2_<cohort_name>_<N>s.e
 #PBS -l storage=<lstorage>
 
 module load nci-parallel/1.0.0a
@@ -27,16 +27,15 @@ module load singularity
 
 set -e
 
-INPUTS=./Inputs/2_preliminary_analysis.inputs
-
 export SINGULARITY_TMPDIR=./tmp
 export SINGULARITY_CACHEDIR=./cache
 
 mkdir -p ${SINGULARITY_TMPDIR} ${SINGULARITY_CACHEDIR}
 
+INPUTS=./Inputs/2_preliminary_analysis.inputs
 SCRIPT=./Scripts/2_preliminary_analysis.sh
-NCPUS=12 # CPUs per parallel task
 
+NCPUS=12 # CPUs per parallel task
 
 
 #########################################################

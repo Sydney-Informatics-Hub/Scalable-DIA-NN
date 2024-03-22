@@ -11,10 +11,10 @@
 #---------------------------- 
 # Inputs auto-updated when the setup script is run:
 
-wine_tar=dot_wine.tar
-wine_image=<custom_built_pwiz.sif>
+wine_tar=<dot_wine.tar>
+wine_image=<wine_sif>
 empirical_lib=<empirical_lib>
-fasta=<fasta>
+fasta_var_string=" "
 
 scan_window=<value>
 mass_acc=<value>
@@ -42,7 +42,7 @@ rm -rf ${inputs}
 
 for wiff in `ls ${wiff_dir}/*wiff`
 do
-	echo "${wine_tar},${wine_image},${empirical_lib},${wiff},${temp},${log_dir},${scan_window},${mass_acc},${ms1_acc},${fasta}" >> ${inputs}
+	echo "${wine_tar},${wine_image},${empirical_lib},${wiff},${temp},${log_dir},${scan_window},${mass_acc},${ms1_acc},\"${fasta_var_string}\"" >> ${inputs}
 done
 
 printf "Inputs for `wc -l < ${inputs}` samples written to ${inputs}\n"
