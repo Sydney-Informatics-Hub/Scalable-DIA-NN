@@ -147,9 +147,19 @@ The parallel steps (where these are most often observed, due to sheer numbers) e
 <details>
 <summary><b>Overview of workflow steps</b></summary>
 
+### Linux DIA-NN singularity container
+
+For a library-free analysis, in-silico library generation should be performed with the Linux version of DIA-NN rather than the Wine-installed PC version. This is simply because the Linux version is much faster (3 minutes vs 45 minutes for a mammalian proteome). 
+
+To obtain a DIA-NN singularity image for v 1.8.1, run:
+```
+module load singularity
+singularity pull docker://biocontainers/diann:v1.8.1_cv1
+```
+
 ## Overview of workflow steps
 
-**0. Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
+**0. Parameter setup:** user configures parameters and then runs the setup script to set up the working directory, scripts and required inputs files
 
 **1. Optional in-silico library creation:** see [Library method options](#library-method-options)
 
@@ -185,11 +195,11 @@ spectral_lib=<filepath of experimental spectral library>
 
 Step 1 of the workflow is skipped. 
 
-#### 2. Library free
+#### 2. Library-free
 
 No cohort-specific, experimentally generated spectral library is available for the experiment, so an in-silicio spectral library created from a digest of the proteome fasta is required. 
 
-To perform library free analysis, library settings for the parameter configuration performed at step 0 will be:
+To perform library-free analysis, library settings for the parameter configuration performed at step 0 will be:
 
 ```
 insilico_lib_prefix=<desired library prefix name>
@@ -226,23 +236,9 @@ Library-free analysis is [recommended by DIA-NN developers](https://github.com/v
 
 ## Detailed user guide
 
-### Required input files
+### Setup the repository 
 
-- A proteome fasta file
-- A parent directory containing all of the wiff and wiff.scan files to be analysed
-    - Data can be in sub-directories within the parent directory
-    - Data can be symlinked  
-- [dot_wine.tar](#dia-nn-resource) containing the PC version of DIA-NN installed with Wine and containing the vendor dll files required for wiff analysis
-- [Singularity container](#wine-singularity-container) with Wine and Mono 
-
-
-
-
-
-
-### 0. Setup
-
-Navigate to your working directory on Gadi:
+Navigate to your working directory on NCI Gadi (or your own infrastructure, please note script adjustments will be required as previosuly noted):
 
 ```
 cd /scratch/<project>
@@ -254,34 +250,78 @@ git clone git@github.com:Sydney-Informatics-Hub/Scalable-DIA-NN.git
 cd Scalable-DIA-NN
 ```
 
-Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following configuration options:
+### Obtain required input files
 
-- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data
-- `cohort` : cohort name, to be used as prefix for output files
-- `insilico_lib_prefix` : see [Library method options](#library-method-options)
-- `spectral_lib` : see [Library method options](#library-method-options)
+Ensure your proteome fasta and all wiff and wiff.scan files are copied to an accessible filesystem. These do not need to be within the cloned repository. 
+
+If not already obtained, get the required DIA-NN resources to run this workflow:
+
+```
+# Optional directory for the resources
+mkdir diann_resources
+cd diann_resources
+
+# dot_wine.tar
+wget -O dot_wine.tar https://www.dropbox.com/scl/fi/4rq4mtdsu6sggw3oa57ji/dot_wine.tar?rlkey=i82v6c4o9aw3qomgtv9y2e4bv&dl=0
+wget -O dot_wine.tar.md5 https://www.dropbox.com/scl/fi/rqcnjfxzr5se9l40q09nv/dot_wine.tar.md5?rlkey=l5pvhxwp7to5qz3gwijdkvfcd&
+md5sum -c dot_wine.tar.md5
+
+# Wine to run the PC version of DIA-NN:
+module load singularity
+singularity pull docker://uvarc/wine:7.0.0
+
+# Linux DIA-NN, only required for optional step 1:
+singularity pull docker://biocontainers/diann:v1.8.1_cv1
+```
+
+Once these required files are available in your environment, proceed to parameter setup. 
+
+### 0. Parameter setup
+
+Open `Scripts/0_setup_params.txt` with your preferred text editor. Edit the parameters to suit your experiment, then save. Details for each parameter are below.
+
+- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data. Note that .wiff and .wiff.scan files are required. All files ending in .wiff in the indir will be operated on. If the parent wiff directory contains samples you wish to exclude, please use symlinks to establish a directory that contains only the samples you want to analyse.Wiff files can be in subdirectories inside the parent indir, and/or symlinked from other locations. A 'Raw_data' directory will be created in the base working directory with symlinks to all data files. This is necessary to circumvent exceeding the ARG_MAX limit for the non-parallel steps (command too long for large cohorts). 
+
+- `cohort` : cohort name, to be used as prefix for output files. Eg 'muscle_libfree'. The number of samples will be auto-added to output file names. 
+
+- `insilico_lib_prefix` : desired library prefix name, or 'false'. eg 'mouse_proteome'. See [Library method options](#library-method-options).
+
+- `spectral_lib` : spectral library filepath or 'false'. See [Library method options](#library-method-options).
+
 - `fasta` : proteome fasta for the target species. Multiple fasta (for example, a proteome plus a contaminants fasta) can be provided as a single string separated by a comma, eg `fasta=/path/to/fasta1.fasta,/path/to/fasta2.fasta)`
-- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored 
-- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples 
-- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method 
+
+- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored.
+
+- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples. 
+
+- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method.
+
 - `mass_accuracy` :  enter 'auto' or a fixed value (floating point or integer). As above.
+
 - `ms1_acc` :  enter 'auto' or a fixed value (floating point or integer). As above.
-- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes
-- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:
-- `project` : Your NCI project code. This will be added to the PBS scripts for accounting
-- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included
-- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. 
-- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive
-- `diann_image` : path to diann v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank
+
+- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
+
+- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:. Please add flags in exact notation as you would on DIA-NN command line, and encase in double quotes, example: `extra_flags="--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"`.
+
+- `project` : Your NCI project code. This will be added to the PBS scripts for accounting.
+
+- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a filesystem path not included. If you have symlinked any inputs, ensure the link source is included.
+
+- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource). This archive will be copied to `jobfs` for every job and sub-task. 
+
+- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container). 
+
+- `diann_image` : path to the DIA-NN v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank.
 
 
-Once these configurations have been made, save the script and submit:
+Once these configurations have been made, save the parameters file, then run:
 
 ```
 bash Scripts/0_setup.sh
 ```
 
-User-specified parameters will be updated to the workflow. The only script edits users need to make are to PBS job resources. This has not been automated, as there is some nuance to it, and will be obsolete once the workflow has been Nextflowed. 
+User-specified parameters will be updated to all scripts in the workflow. The only script edits users need to make are to PBS job resources (ie CPU, MEM, and waltime). This has not been automated, as there is some nuance to it, and will be obsolete once the workflow has been Nextflowed. 
 
 ### 1. In silico library generation (optional) 
 
