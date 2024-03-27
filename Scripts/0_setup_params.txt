@@ -1,0 +1,17 @@
+wiff_dir=
+cohort=
+insilico_lib_prefix=
+spectral_lib=
+fasta=
+subsample=true
+percent=10 
+scan_window=auto 
+mass_acc=auto 
+ms1_acc=auto 
+missing=30
+extra_flags=
+project=
+lstorage=
+wine_tar=diann_resources/dot_wine.tar
+wine_image=diann_resources/wine_7.0.0.sif
+diann_image=diann_resources/diann_v1.8.1_cv1.sif

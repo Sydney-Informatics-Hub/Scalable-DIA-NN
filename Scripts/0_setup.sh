@@ -1,168 +1,54 @@
 #!/bin/bash
 
 # Run this before commencing the analysis to automate updates to scripts
-# First, adjust parameters, then submit with 'bash Scripts/0_setup.sh'
+# First, adjust parameters in Scripts/0_setup_params.txt, then submit this script
+# with 'bash Scripts/0_setup.sh' to update user parameters to the workflow
 
 
 #--------------------------------------------------------------------------------
-#### PARAMS TO BE ADJUSTED BY USER ####
-
-# Input wiff directory:
-## NOTE: this will run DIA-NN over ALL SAMPLES ending in .wiff in the indir
-## Wiff files can be in subdirectories inside the parent indir, and/or symlinked
-## To run on a subset of sample, please make a directory with this subset of wiff and wiff.scan files symlinked
-## A 'Raw_data' directory will be created in the base working directory with symlinks to all data files
-## This is necessary to circumvent exceeding the ARG_MAX limit for the non-parallel steps (command too long for large cohorts) 
-
-wiff_dir=
- 
-#-----
-
-# Cohort name (number of samples will be auto-added):
-
-cohort=
-
-#-----
-
-# Library method: 
-
-# There are three possible options:
-
-# - 1) use an experimental spectral library, no insilico fasta digest required
-#	- this is the "library based" method described in DIA-NN README
-#	- to use this method, the parameter settings should be:
-#		insilico_lib_prefix=false
-#		spectral_lib=<spectral library filepath>
-#	- user does not run step 1 script
- 
-# - 2) perform an in-silico digest of a fasta file, no experimental spectral library
-#	- this is the "library free" method described in DIA-NN README
-#	- to use this method, the parameter settings should be:
-#		insilico_lib_prefix=<desired library prefix name>
-#		spectral_lib=false
-#	- user runs step 1 script
-#	
-# - 3) perform an in-silico digest of a fasta WITH an experimental spectral library
-# 	- this has been described as a "belts and braces" approach, and is not explicitly described in the DIA-NN README
-#	but is a valid method when running on the GUI (user chooses fasta digest params AND laods a spectral library file) 
-# 	- to use this method, the parameter settings should be:
-#		insilico_lib_prefix=<desired library prefix name>
-#		spectral_lib=<spectral library filepath>
-#	- user runs step 1 script
-#
-# If an insilico library is created from a fasta only, this file is not cohort specific and can be re-used across
-# multiple experiments of the same organism. 
-# If the insilico library created from a fasta AND an experimentally derived spectral library, the resultatn library
-# IS cohort specific and cannot be used in other experiments. 
-
-insilico_lib_prefix=
-spectral_lib=
+#### Obtain user defined parameters from Scripts/0_setup_params.txt ####
+wiff_dir=$(grep wiff_dir Scripts/0_setup_params.txt | cut -d '=' -f 2)
+cohort=$(grep cohort Scripts/0_setup_params.txt | cut -d '=' -f 2)
+insilico_lib_prefix=$(grep insilico_lib_prefix Scripts/0_setup_params.txt | cut -d '=' -f 2)
+spectral_lib=$(grep spectral_lib Scripts/0_setup_params.txt | cut -d '=' -f 2)
+fasta=$(grep fasta Scripts/0_setup_params.txt | cut -d '=' -f 2)
+subsample=$(grep subsample Scripts/0_setup_params.txt | cut -d '=' -f 2)
+percent=$(grep percent Scripts/0_setup_params.txt | cut -d '=' -f 2) 
+scan_window=$(grep scan_window Scripts/0_setup_params.txt | cut -d '=' -f 2)
+mass_acc=$(grep mass_acc Scripts/0_setup_params.txt | cut -d '=' -f 2)
+ms1_acc=$(grep ms1_acc Scripts/0_setup_params.txt | cut -d '=' -f 2) 
+missing=$(grep missing Scripts/0_setup_params.txt | cut -d '=' -f 2)
+extra_flags=$(grep extra_flags Scripts/0_setup_params.txt | cut -d '=' -f 2)
+project=$(grep project Scripts/0_setup_params.txt | cut -d '=' -f 2)
+lstorage=$(grep lstorage Scripts/0_setup_params.txt | cut -d '=' -f 2)
+wine_tar=$(grep wine_tar Scripts/0_setup_params.txt | cut -d '=' -f 2)
+wine_image=$(grep wine_image Scripts/0_setup_params.txt | cut -d '=' -f 2)
+diann_image=$(grep diann_image Scripts/0_setup_params.txt | cut -d '=' -f 2)
 
 
-#-----
+echo Wiff file input directory: $wiff_dir
+echo Cohort name: $cohort
+echo Insilico library prefix: $insilico_lib_prefix
+echo Spectral library: $spectral_lib
+echo Fasta: $fasta
+echo Subsample: $subsample
+echo Subsample percent: $percent
+echo Scan window: $scan_window
+echo Mass accuracy: $mass_acc
+echo MS1 accuracy: $ms1_acc
+echo Percent missingness filter: $missing
+echo Extra DIA-NN flags: $extra_flags
+echo NCI accounting code: $project
+echo NCI filesystem paths: $lstorage
+echo dot_wine.tar diann resource: $wine_tar
+echo Wine singularity image file: $wine_image
+echo DIA-NN Linux singularity image file: $diann_image
 
-# Fasta: 
-# If multiple fasta files to be used, please add as a comma-delimited list, 
-# eg 'fasta=fast1.fasta,fast2.fasta' 
+exit
 
-fasta=
-
-#-----
-
-# Subsample method:
-# If subsample is true, N% (default is 10) will be selected and processed with 'auto' settings
-# for scan window, mass accuracy and MS1 accuracy for step 2, in parallel. 
-# Then, an additional script 'subsample_averages.pl' is to be run by user, which will extract the 
-# "Average recommended settings for this experiement" from the logs of these samples, 
-# take the average across the sub-sampled samples, and apply them to all scripts in the 
-# workflow. Then, the whole workflow (starting from step 2) is to be run on all samples, with these 
-# derived averages as fixed values. 
-# User can change the % of samples to subsample if desired, or leave as the default of 10.
-# If subsample is true, there is no need to change the values for scan window, mass accuracy or 
-# ms1 accuracy in this setup script (they will be ignored).
-# If subsample is false, user must set these 3 parameters to either auto or some value. 
-
-subsample=true
-percent=10 
-
-#### MANUAL SUBSAMLE LIST OVER-RIDE NOT YET DONE!####
-   
-#-----
-
-# Scan window ('auto' or integer):
-
-scan_window=auto 
-   
-#-----
-
-# Mass accuracy ('auto' or numeric) 
-
-mass_acc=auto 
-   
-#-----
-
-# MS1 accuracy ('auto' or numeric). 20 is fairly typical.  
-
-ms1_acc=auto 
-   
-#-----
-
-# Filter for missingness: minimum percent of samples required with gene detected to keep a gene
-# Note: the full unfiltered output is retained, the filter creates new files with kept and discarded genes 
-
-missing=30
-
-#-----
-
-# Extra flags: 
-# Add any extra flags here. these will be applied to all steps. Its too complex to derive which of all the many
-# DiaNN flags apply to which steps, if you find that you have added a flag here and you receive an error at part
-# of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry 
-# please fix manually, document, rerun. :-) 
-# Please add flags in exact notation as you would on DiaNN command line, and encase in double quotes. 
-
-# Added scanning swath here - was hardcoded into step 2 script only - not sure if we will get an error 
-# at any other steps where its not valid... 
-
-extra_flags=
-
-# had these for Carsten, removed here - did not show up in GUI log following the screenshot sent.
-#"--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"
-
-#-----
-
-# Accounting:
-
-# NCI project code for billing: 
-project=
-
-# NCI lstorage paths for IO:
-lstorage=" "
-
-#-----
-
-# dot wine tar folder with DiANN.exe installed
-
-wine_tar=<dot_wine.tar>
-
-#-----
-
-# wine singularity container 
-
-wine_image=<wine_sif>
-
-#-----
-
-# diann singularity container
-# only required for step 1 - if you are performing a true library free, leave as na
-# or else update path to diann_v1.8.1_cv1.sif: 
-
-diann_image=
-
-
-#### END OPTION SETTING ####
-########################################
 #--------------------------------------------------------------------------------
+#### Update workflow scripts with user defined parameters ####
+
 
 # Make required workflow directories:
 mkdir -p Logs PBS_logs Inputs Raw_data
