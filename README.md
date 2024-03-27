@@ -101,63 +101,24 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 ### Data
 In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
 
-### DIA-NN resource
-PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
-
-We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available [here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). To download these on Linux CLI:
-
-```
-wget -O dot_wine.tar https://www.dropbox.com/scl/fi/4rq4mtdsu6sggw3oa57ji/dot_wine.tar?rlkey=i82v6c4o9aw3qomgtv9y2e4bv&dl=0
-wget -O dot_wine.tar.md5 https://www.dropbox.com/scl/fi/rqcnjfxzr5se9l40q09nv/dot_wine.tar.md5?rlkey=l5pvhxwp7to5qz3gwijdkvfcd&
-md5sum -c dot_wine.tar.md5
-```  
-
-You do not need to untar this archive: each compute task must have its own copy on SSD local to the node storage, and this is managed by the workflow. 
-
-You do need to add its path to the setup script in [step 0](#0-setup).
+### DIA-NN resources
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available on Dropbox, and download details are provided under the [user guide](#detailed-user-guide)
 
 
-### Wine singularity container
-The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
+The `dot_wine.tar` DIA-NN installation requires Wine with Mono to run. We have successfully used the [uvarc container](https://hub.docker.com/r/uvarc/wine) and the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). The Proteowizard container requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
 
-* [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
-* [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). This requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
+For a library-free analysis, in-silico library generation should be performed with the [Linux version of DIA-NN](https://docker.ecosyste.ms/packages/biocontainers%2Fdiann/versions/v1.8.1_cv1) rather than the Wine-installed PC version. This is simply because the Linux version is much faster (3 minutes vs 45 minutes for a mammalian proteome).
 
-To obtain the uvarc wine container:
-
-```
-module load singularity
-singularity pull docker://uvarc/wine:7.0.0
-```
-
-During your parameter configurations (step 0) add the path to the resultant image file for the 'wine_image' parameter. 
-
-#### Random task errors under Wine
-
-Random errors may be encountered that look like this:
-
-```
-Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE_BLOCKING
-```
-
-The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
 </details>
 
 <details>
 <summary><b>Overview of workflow steps</b></summary>
 
-### Linux DIA-NN singularity container
-
-For a library-free analysis, in-silico library generation should be performed with the Linux version of DIA-NN rather than the Wine-installed PC version. This is simply because the Linux version is much faster (3 minutes vs 45 minutes for a mammalian proteome). 
-
-To obtain a DIA-NN singularity image for v 1.8.1, run:
-```
-module load singularity
-singularity pull docker://biocontainers/diann:v1.8.1_cv1
-```
 
 ## Overview of workflow steps
+
+**Environment setup:** Clone the repository and establish required input files
 
 **0. Parameter setup:** user configures parameters and then runs the setup script to set up the working directory, scripts and required inputs files
 
@@ -422,6 +383,16 @@ Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed
 After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process of resubmitting and checking until no more failed tasks are found. 
 
 Once all step 2 tasks have successfully completed, move on to step 3. 
+
+#### Random task errors under Wine
+
+Random errors may be encountered that look like this:
+
+```
+Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE_BLOCKING
+```
+
+The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
 ### 3. Assemble empirical library
 
