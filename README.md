@@ -99,10 +99,12 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 ## Input requirements
 
 ### Data
-In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
+- wiff and wiff.scan inputs files
+- proteome fasta 
+- cohort-specific experimental library can be used for a library-based analysis, or user can run optional [step 1](#1-in-silico-library-generation-optional)
 
 ### DIA-NN resources
-PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available on Dropbox, and download details are provided under the [user guide](#detailed-user-guide)
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available on Dropbox, and download details are provided under the [user guide](#detailed-user-guide).
 
 
 The `dot_wine.tar` DIA-NN installation requires Wine with Mono to run. We have successfully used the [uvarc container](https://hub.docker.com/r/uvarc/wine) and the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). The Proteowizard container requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
@@ -120,7 +122,7 @@ For a library-free analysis, in-silico library generation should be performed wi
 
 **Environment setup:** Clone the repository and establish required input files
 
-**0. Parameter setup:** user configures parameters and then runs the setup script to set up the working directory, scripts and required inputs files
+**0. Parameter setup:** provide parameters in a parameters text file and then run the setup script to update parameters to the whole workflow
 
 **1. Optional in-silico library creation:** see [Library method options](#library-method-options)
 
@@ -317,10 +319,37 @@ Once the digest settings have been tailored to your needs, submit step 1:
 qsub Scripts/1_generate_insilico_lib.pbs
 ```
 
-This will create an insilico spectral library and log file:
+Once the job has completed, perform the following simple manual checks before proceeding to step 2:
+
+- Job exit status 0:
 ```
-./1_insilico_library/<insilico_lib_prefix>.predicted.speclib
-./1_insilico_library/<insilico_lib_prefix>.log.txt
+grep Exit PBS_logs/step1_gen_insilico_lib.o 
+#   Exit Status:        0
+```
+- No errors in PBS error log:
+```
+wc -l PBS_logs/step1_gen_insilico_lib.e
+# 0 PBS_logs/step1_gen_insilico_lib.e
+```
+- Log file describes an insilico library and ends in 'Finished':
+```
+tail Logs/1_generate_insilico_lib.log 
+# 1598378
+# 1603242
+# [2:39] Decoding predicted spectra and IMs
+# [2:43] Decoding RTs
+# [2:45] Saving the library to 1_insilico_library/mouse_proteome.predicted.speclib
+# [2:48] Initialising library
+# 
+# [2:50] Log saved to 1_insilico_library/mouse_proteome.log.txt
+# Finished
+```
+
+- Output directory contains these 2 files:
+```
+ls -1 1_insilico_library/
+# mouse_proteome.log.txt
+# mouse_proteome.predicted.speclib
 ```
 
 
@@ -336,7 +365,7 @@ To run the step 2 subsampling, update resources in `Scripts/2_preliminary_analys
 
 Save the script, then submit:
 ```
-Scripts/2_preliminary_analysis_run_parallel.pbs
+qsub Scripts/2_preliminary_analysis_run_parallel.pbs
 ```
 
 Run times up to 40 minutes have been observed for large Scanning SWATH files. Zeno SWATH files up to 10 minutes each. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
@@ -344,7 +373,7 @@ Run times up to 40 minutes have been observed for large Scanning SWATH files. Ze
 After the subsampling job has finished, run the checker script:
 
 ```
-Scripts/2_preliminary_analysis_check.sh
+bash Scripts/2_preliminary_analysis_check.sh
 ```
 
 Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
@@ -375,10 +404,10 @@ Run times up to around 40 minutes have been observed for large Scanning SWATH fi
 After the step 2 job has finished, run the checker script:
 
 ```
-Scripts/2_preliminary_analysis_check.sh
+bash Scripts/2_preliminary_analysis_check.sh
 ```
 
-Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
+Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then resubmit the step 2 PBS job. Assuming no parameter errors or insufficient compute resource requests, the most likely task failures will be [random Wine errors](#random-task-errors-under-wine).
 
 After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process of resubmitting and checking until no more failed tasks are found. 
 
@@ -408,46 +437,46 @@ As cohort size increases for large scanning SWATH samples, additional CPU are no
 
 Update resources in `Scripts/3_assemble_empirical_lib.pbs` then submit:
 ```
-qsub  Scripts/3_assemble_empirical_lib.pbs
+qsub Scripts/3_assemble_empirical_lib.pbs
 ```
 
 Once the job has completed, perform the following simple manual checks before proceeding to step 4:
 
 - Job exit status 0:
 ```
-$ grep Exit PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.o 
-   Exit Status:        0
+grep Exit PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.o 
+#   Exit Status:        0
 ```
 - No errors in PBS error log:
 ```
-$ wc -l PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e 
-0 PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e
+wc -l PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e 
+# 0 PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e
 
 ```
 - Log file describes a spectral library and ends in 'Finished':
 ```
-$ tail Logs/3_assemble_empirical_lib.log 
-[334:22] Loading the generated library and saving it in the .speclib format
-[334:22] Loading spectral library 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
-[334:29] Spectral library loaded: 12759 protein isoforms, 8342 protein groups and 39315 precursors in 32612 elution groups.
-[334:29] Protein names missing for some isoforms
-[334:29] Gene names missing for some isoforms
-[334:29] Library contains 0 proteins, and 0 genes
-[334:29] Saving the library to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
-[334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
-Finished
+tail Logs/3_assemble_empirical_lib.log 
+# [334:22] Loading the generated library and saving it in the .speclib format
+# [334:22] Loading spectral library 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+# [334:29] Spectral library loaded: 12759 protein isoforms, 8342 protein groups and 39315 precursors in 32612 elution groups.
+# [334:29] Protein names missing for some isoforms
+# [334:29] Gene names missing for some isoforms
+# [334:29] Library contains 0 proteins, and 0 genes
+# [334:29] Saving the library to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+# [334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+# Finished
 ```
 Note that the message "Library contains 0 proteins, and 0 genes" within the log output is expected and benign. This does not affect the results. Playing around with parameters during testing, we were able to get this message to disappear, however the downstream results produced fewer genes than the version of parameters which yielded this unsettling message. There are genes and proteins in the library. 
 
 - Output directory contains these 5 files:
 ```
-$ ls -lh 3_empirical_library/
-total 29G
--rw-r--r-- 1 cew562 xh27 111M Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
--rw-r--r-- 1 cew562 xh27 3.2K Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
--rw-r--r-- 1 cew562 xh27  29G Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.report
--rw-r--r-- 1 cew562 xh27  12M Oct 20 18:28 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
--rw-r--r-- 1 cew562 xh27 234K Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.stats.tsv
+ls -lh 3_empirical_library/
+# total 29G
+# -rw-r--r-- 1 cew562 xh27 111M Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+# -rw-r--r-- 1 cew562 xh27 3.2K Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+# -rw-r--r-- 1 cew562 xh27  29G Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.report
+# -rw-r--r-- 1 cew562 xh27  12M Oct 20 18:28 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+# -rw-r--r-- 1 cew562 xh27 234K Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.stats.tsv
 ```
 
 ### 4. Final quantification (parallel)
