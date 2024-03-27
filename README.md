@@ -104,7 +104,13 @@ In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectra
 ### DIA-NN resource
 PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
 
-We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available [here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). Please download to your compute environment and run the checksum.   
+We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available [here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). To download these on Linux CLI:
+
+```
+wget -O dot_wine.tar https://www.dropbox.com/scl/fi/4rq4mtdsu6sggw3oa57ji/dot_wine.tar?rlkey=i82v6c4o9aw3qomgtv9y2e4bv&dl=0
+wget -O dot_wine.tar.md5 https://www.dropbox.com/scl/fi/rqcnjfxzr5se9l40q09nv/dot_wine.tar.md5?rlkey=l5pvhxwp7to5qz3gwijdkvfcd&
+md5sum -c dot_wine.tar.md5
+```  
 
 You do not need to untar this archive: each compute task must have its own copy on SSD local to the node storage, and this is managed by the workflow. 
 
