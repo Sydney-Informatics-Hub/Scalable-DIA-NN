@@ -43,7 +43,7 @@ diann_image=<path_to_diann_v1.8.1_cv1.sif>
 fasta_var_string=" "
 
 # insilico library prefix. Since more than one fasta can be provided, can't use fasta prefix. User must specify. 
-insilico_library_prefix=<prefix>
+insilico_lib_prefix=<prefix>
 
 #----------------------------
 
@@ -60,7 +60,7 @@ singularity exec \
         diann \
 	--threads ${PBS_NCPUS} \
 	--verbose 4 \
-	--out-lib ${out_dir}/${insilico_library_prefix}.lib \
+	--out-lib ${out_dir}/${insilico_lib_prefix}.lib \
 	--gen-spec-lib \
 	--predictor \
 	--reannotate \

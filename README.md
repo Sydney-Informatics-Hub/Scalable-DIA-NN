@@ -99,51 +99,30 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 ## Input requirements
 
 ### Data
-In addition to the wiff and wiff.scan inputs, a fasta is required, and a spectral library can be either supplied or created with optional `Step 1`. A cohort-specific empirical library is generated using the spectral library and input samples.
+- wiff and wiff.scan inputs files
+- proteome fasta 
+- cohort-specific experimental library can be used for a library-based analysis, or user can run optional [step 1](#1-in-silico-library-generation-optional)
 
-### DIA-NN resource
-PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).
-
-We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available [here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). Please download to your compute environment and run the checksum.   
-
-You do not need to untar this archive: each compute task must have its own copy on SSD local to the node storage, and this is managed by the workflow. 
-
-You do need to add its path to the setup script in [step 0](#0-setup).
+### DIA-NN resources
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available on Dropbox, and download details are provided under the [user guide](#detailed-user-guide).
 
 
-### Wine singularity container
-The DIA-NN executable requires Wine with Mono to run. We have used these containers successfully: 
+The `dot_wine.tar` DIA-NN installation requires Wine with Mono to run. We have successfully used the [uvarc container](https://hub.docker.com/r/uvarc/wine) and the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). The Proteowizard container requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
 
-* [University of Virginia Research Computing Wine 7.0.0](https://hub.docker.com/r/uvarc/wine)
-* [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). This requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
+For a library-free analysis, in-silico library generation should be performed with the [Linux version of DIA-NN](https://docker.ecosyste.ms/packages/biocontainers%2Fdiann/versions/v1.8.1_cv1) rather than the Wine-installed PC version. This is simply because the Linux version is much faster (3 minutes vs 45 minutes for a mammalian proteome).
 
-To obtain the uvarc wine container:
-
-```
-module load singularity
-singularity pull docker://uvarc/wine:7.0.0
-```
-
-During your parameter configurations (step 0) add the path to the resultant image file for the 'wine_image' parameter. 
-
-#### Random task errors under Wine
-
-Random errors may be encountered that look like this:
-
-```
-Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE_BLOCKING
-```
-
-The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
 </details>
 
 <details>
 <summary><b>Overview of workflow steps</b></summary>
 
+
 ## Overview of workflow steps
 
-**0. Set up:** user configures parameters and then runs this script to set up the working directory, scripts and required inputs files
+**Environment setup:** Clone the repository and establish required input files
+
+**0. Parameter setup:** provide parameters in a parameters text file and then run the setup script to update parameters to the whole workflow
 
 **1. Optional in-silico library creation:** see [Library method options](#library-method-options)
 
@@ -179,11 +158,11 @@ spectral_lib=<filepath of experimental spectral library>
 
 Step 1 of the workflow is skipped. 
 
-#### 2. Library free
+#### 2. Library-free
 
 No cohort-specific, experimentally generated spectral library is available for the experiment, so an in-silicio spectral library created from a digest of the proteome fasta is required. 
 
-To perform library free analysis, library settings for the parameter configuration performed at step 0 will be:
+To perform library-free analysis, library settings for the parameter configuration performed at step 0 will be:
 
 ```
 insilico_lib_prefix=<desired library prefix name>
@@ -198,7 +177,7 @@ To use *both* a proteome fasta and a cohort-specific experimentally generated sp
 
 ```
 insilico_lib_prefix=<desired library prefix name>
-spectral_lib=<ilepath of experimental spectral library>
+spectral_lib=<filepath of experimental spectral library>
 ```
 
 Step 1 of the workflow is required. 
@@ -220,23 +199,9 @@ Library-free analysis is [recommended by DIA-NN developers](https://github.com/v
 
 ## Detailed user guide
 
-### Required input files
+### Setup the repository 
 
-- A proteome fasta file
-- A parent directory containing all of the wiff and wiff.scan files to be analysed
-    - Data can be in sub-directories within the parent directory
-    - Data can be symlinked  
-- [dot_wine.tar](#dia-nn-resource) containing the PC version of DIA-NN installed with Wine and containing the vendor dll files required for wiff analysis
-- [Singularity container](#wine-singularity-container) with Wine and Mono 
-
-
-
-
-
-
-### 0. Setup
-
-Navigate to your working directory on Gadi:
+Navigate to your working directory on NCI Gadi (or your own infrastructure, please note script adjustments will be required as previosuly noted):
 
 ```
 cd /scratch/<project>
@@ -248,34 +213,78 @@ git clone git@github.com:Sydney-Informatics-Hub/Scalable-DIA-NN.git
 cd Scalable-DIA-NN
 ```
 
-Open `Scripts/0_setup.sh` with your preferred text editor. Edit the following configuration options:
+### Obtain required input files
 
-- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data
-- `cohort` : cohort name, to be used as prefix for output files
-- `insilico_lib_prefix` : see [Library method options](#library-method-options)
-- `spectral_lib` : see [Library method options](#library-method-options)
+Ensure your proteome fasta and all wiff and wiff.scan files are copied to an accessible filesystem. These do not need to be within the cloned repository. 
+
+If not already obtained, get the required DIA-NN resources to run this workflow:
+
+```
+# Optional directory for the resources
+mkdir diann_resources
+cd diann_resources
+
+# dot_wine.tar
+wget -O dot_wine.tar https://www.dropbox.com/scl/fi/4rq4mtdsu6sggw3oa57ji/dot_wine.tar?rlkey=i82v6c4o9aw3qomgtv9y2e4bv&dl=0
+wget -O dot_wine.tar.md5 https://www.dropbox.com/scl/fi/rqcnjfxzr5se9l40q09nv/dot_wine.tar.md5?rlkey=l5pvhxwp7to5qz3gwijdkvfcd&
+md5sum -c dot_wine.tar.md5
+
+# Wine to run the PC version of DIA-NN:
+module load singularity
+singularity pull docker://uvarc/wine:7.0.0
+
+# Linux DIA-NN, only required for optional step 1:
+singularity pull docker://biocontainers/diann:v1.8.1_cv1
+```
+
+Once these required files are available in your environment, proceed to parameter setup. 
+
+### 0. Parameter setup
+
+Open `Scripts/0_setup_params.txt` with your preferred text editor. Edit the parameters to suit your experiment, then save. Details for each parameter are below.
+
+- `wiff_dir` : full path on Gadi to the parent directory containing wiff/wiff.scan input data. Note that .wiff and .wiff.scan files are required. All files ending in .wiff in the indir will be operated on. If the parent wiff directory contains samples you wish to exclude, please use symlinks to establish a directory that contains only the samples you want to analyse.Wiff files can be in subdirectories inside the parent indir, and/or symlinked from other locations. A 'Raw_data' directory will be created in the base working directory with symlinks to all data files. This is necessary to circumvent exceeding the ARG_MAX limit for the non-parallel steps (command too long for large cohorts). 
+
+- `cohort` : cohort name, to be used as prefix for output files. Eg 'muscle_libfree'. The number of samples will be auto-added to output file names. 
+
+- `insilico_lib_prefix` : desired library prefix name, or 'false'. eg 'mouse_proteome'. See [Library method options](#library-method-options).
+
+- `spectral_lib` : spectral library filepath or 'false'. See [Library method options](#library-method-options).
+
 - `fasta` : proteome fasta for the target species. Multiple fasta (for example, a proteome plus a contaminants fasta) can be provided as a single string separated by a comma, eg `fasta=/path/to/fasta1.fasta,/path/to/fasta2.fasta)`
-- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored 
-- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples 
-- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method 
+
+- `subsample` : enter `true` or `false`. If no prior information is known about the best settings for scan window and mass accuracy, 'true' is recommended. If true, N% of samples will be selected and initial quantification performed using 'auto' for mass accuracy, MS1 accuracy and scan window parameters. Recommended values for these parameters will then be averaged from the subsamples (using `Scripts/2_subsample_averages.pl`), and applied to the workflow. If false, user must specify either 'auto' or '<fixed_value>' for these parameters within the setup script. If true, any values entered for these parameters are ignored.
+
+- `percent` : if performing subsampling, percent of samples to subsample. Samples will be selected from the name-sorted list of samples evenly spaced along the list. The intention is for the Nextflow version of this workflow to enable over-ride with a user-provided list of subsamples. 
+
+- `scan_window` : enter 'auto' or an integer. If 'auto', user can choose whether to run the entire workflow with 'auto' (not recommended) or run only steps 2-3 with 'auto', followed by `Scripts/4_individual_final_analysis_setup_params.pl` to extract the 'Averaged recommended settings for this experiment' from the step 3 log file and apply it to the scripts for steps 4-5. This will likely give almost as good results as using the subsampling method.
+
 - `mass_accuracy` :  enter 'auto' or a fixed value (floating point or integer). As above.
+
 - `ms1_acc` :  enter 'auto' or a fixed value (floating point or integer). As above.
-- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes
-- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:
-- `project` : Your NCI project code. This will be added to the PBS scripts for accounting
-- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a path not included. If you have symlinked any inputs, ensure the link source is included
-- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource) containing the installation of the PC version of DIA-NN, and 'Clearcore' and 'Sciex' dll files. This archive will be copied to `jobfs` for every job and sub-task. 
-- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container) to run the PC DIA-NN in the above tar archive
-- `diann_image` : path to diann v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank
+
+- `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
+
+- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:. Please add flags in exact notation as you would on DIA-NN command line, and encase in double quotes, example: `extra_flags="--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"`.
+
+- `project` : Your NCI project code. This will be added to the PBS scripts for accounting.
+
+- `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a filesystem path not included. If you have symlinked any inputs, ensure the link source is included.
+
+- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource). This archive will be copied to `jobfs` for every job and sub-task. 
+
+- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container). 
+
+- `diann_image` : path to the DIA-NN v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank.
 
 
-Once these configurations have been made, save the script and submit:
+Once these configurations have been made, save the parameters file, then run:
 
 ```
 bash Scripts/0_setup.sh
 ```
 
-User-specified parameters will be updated to the workflow. The only script edits users need to make are to PBS job resources. This has not been automated, as there is some nuance to it, and will be obsolete once the workflow has been Nextflowed. 
+User-specified parameters will be updated to all scripts in the workflow. The only script edits users need to make are to PBS job resources (ie CPU, MEM, and waltime). This has not been automated, as there is some nuance to it, and will be obsolete once the workflow has been Nextflowed. 
 
 ### 1. In silico library generation (optional) 
 
@@ -310,10 +319,37 @@ Once the digest settings have been tailored to your needs, submit step 1:
 qsub Scripts/1_generate_insilico_lib.pbs
 ```
 
-This will create an insilico spectral library and log file:
+Once the job has completed, perform the following simple manual checks before proceeding to step 2:
+
+- Job exit status 0:
 ```
-./1_insilico_library/<insilico_lib_prefix>.predicted.speclib
-./1_insilico_library/<insilico_lib_prefix>.log.txt
+grep Exit PBS_logs/step1_gen_insilico_lib.o 
+#   Exit Status:        0
+```
+- No errors in PBS error log:
+```
+wc -l PBS_logs/step1_gen_insilico_lib.e
+# 0 PBS_logs/step1_gen_insilico_lib.e
+```
+- Log file describes an insilico library and ends in 'Finished':
+```
+tail Logs/1_generate_insilico_lib.log 
+# 1598378
+# 1603242
+# [2:39] Decoding predicted spectra and IMs
+# [2:43] Decoding RTs
+# [2:45] Saving the library to 1_insilico_library/mouse_proteome.predicted.speclib
+# [2:48] Initialising library
+# 
+# [2:50] Log saved to 1_insilico_library/mouse_proteome.log.txt
+# Finished
+```
+
+- Output directory contains these 2 files:
+```
+ls -1 1_insilico_library/
+# mouse_proteome.log.txt
+# mouse_proteome.predicted.speclib
 ```
 
 
@@ -329,7 +365,7 @@ To run the step 2 subsampling, update resources in `Scripts/2_preliminary_analys
 
 Save the script, then submit:
 ```
-Scripts/2_preliminary_analysis_run_parallel.pbs
+qsub Scripts/2_preliminary_analysis_run_parallel.pbs
 ```
 
 Run times up to 40 minutes have been observed for large Scanning SWATH files. Zeno SWATH files up to 10 minutes each. Allowing generous walltimes is not recommended for jobs requesting large numbers of nodes, as this can waste KSU if a small number of samples requires a longer run time. Its best to let these few samples fail and be detected with the checker script. 
@@ -337,7 +373,7 @@ Run times up to 40 minutes have been observed for large Scanning SWATH files. Ze
 After the subsampling job has finished, run the checker script:
 
 ```
-Scripts/2_preliminary_analysis_check.sh
+bash Scripts/2_preliminary_analysis_check.sh
 ```
 
 Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
@@ -368,14 +404,24 @@ Run times up to around 40 minutes have been observed for large Scanning SWATH fi
 After the step 2 job has finished, run the checker script:
 
 ```
-Scripts/2_preliminary_analysis_check.sh
+bash Scripts/2_preliminary_analysis_check.sh
 ```
 
-Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then submit. 
+Any failed tasks will be written to `Inputs/2_preliminary_analysis.inputs-failed`, with a message to update resources to match the number of failed samples in `Scripts/2_preliminary_analysis_run_parallel_failed.pbs` and then resubmit the step 2 PBS job. Assuming no parameter errors or insufficient compute resource requests, the most likely task failures will be [random Wine errors](#random-task-errors-under-wine).
 
 After the failed tasks job has completed, run the checker script again, and if necessary, repeat the process of resubmitting and checking until no more failed tasks are found. 
 
 Once all step 2 tasks have successfully completed, move on to step 3. 
+
+#### Random task errors under Wine
+
+Random errors may be encountered that look like this:
+
+```
+Cannot transition thread 000000000000014c from ASYNC_SUSPEND_REQUESTED with DONE_BLOCKING
+```
+
+The parallel steps (where these are most often observed, due to sheer numbers) each have checker scripts that will detect these (and other) task failures for ease of resubmission. 
 
 ### 3. Assemble empirical library
 
@@ -391,46 +437,46 @@ As cohort size increases for large scanning SWATH samples, additional CPU are no
 
 Update resources in `Scripts/3_assemble_empirical_lib.pbs` then submit:
 ```
-qsub  Scripts/3_assemble_empirical_lib.pbs
+qsub Scripts/3_assemble_empirical_lib.pbs
 ```
 
 Once the job has completed, perform the following simple manual checks before proceeding to step 4:
 
 - Job exit status 0:
 ```
-$ grep Exit PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.o 
-   Exit Status:        0
+grep Exit PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.o 
+#   Exit Status:        0
 ```
 - No errors in PBS error log:
 ```
-$ wc -l PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e 
-0 PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e
+wc -l PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e 
+# 0 PBS_logs/step3_MM_Complete_Liver_Proteomics_1530s.e
 
 ```
 - Log file describes a spectral library and ends in 'Finished':
 ```
-$ tail Logs/3_assemble_empirical_lib.log 
-[334:22] Loading the generated library and saving it in the .speclib format
-[334:22] Loading spectral library 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
-[334:29] Spectral library loaded: 12759 protein isoforms, 8342 protein groups and 39315 precursors in 32612 elution groups.
-[334:29] Protein names missing for some isoforms
-[334:29] Gene names missing for some isoforms
-[334:29] Library contains 0 proteins, and 0 genes
-[334:29] Saving the library to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
-[334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
-Finished
+tail Logs/3_assemble_empirical_lib.log 
+# [334:22] Loading the generated library and saving it in the .speclib format
+# [334:22] Loading spectral library 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+# [334:29] Spectral library loaded: 12759 protein isoforms, 8342 protein groups and 39315 precursors in 32612 elution groups.
+# [334:29] Protein names missing for some isoforms
+# [334:29] Gene names missing for some isoforms
+# [334:29] Library contains 0 proteins, and 0 genes
+# [334:29] Saving the library to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+# [334:29] Log saved to 3_empirical_library/MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+# Finished
 ```
 Note that the message "Library contains 0 proteins, and 0 genes" within the log output is expected and benign. This does not affect the results. Playing around with parameters during testing, we were able to get this message to disappear, however the downstream results produced fewer genes than the version of parameters which yielded this unsettling message. There are genes and proteins in the library. 
 
 - Output directory contains these 5 files:
 ```
-$ ls -lh 3_empirical_library/
-total 29G
--rw-r--r-- 1 cew562 xh27 111M Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
--rw-r--r-- 1 cew562 xh27 3.2K Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
--rw-r--r-- 1 cew562 xh27  29G Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.report
--rw-r--r-- 1 cew562 xh27  12M Oct 20 18:28 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
--rw-r--r-- 1 cew562 xh27 234K Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.stats.tsv
+ls -lh 3_empirical_library/
+# total 29G
+# -rw-r--r-- 1 cew562 xh27 111M Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical
+# -rw-r--r-- 1 cew562 xh27 3.2K Oct 20 04:21 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.log.txt
+# -rw-r--r-- 1 cew562 xh27  29G Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.report
+# -rw-r--r-- 1 cew562 xh27  12M Oct 20 18:28 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.speclib
+# -rw-r--r-- 1 cew562 xh27 234K Oct 20 04:20 MM_Complete_Liver_Proteomics_1530s_mouse_proteome.empirical.stats.tsv
 ```
 
 ### 4. Final quantification (parallel)
