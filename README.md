@@ -177,7 +177,7 @@ To use *both* a proteome fasta and a cohort-specific experimentally generated sp
 
 ```
 insilico_lib_prefix=<desired library prefix name>
-spectral_lib=<ilepath of experimental spectral library>
+spectral_lib=<filepath of experimental spectral library>
 ```
 
 Step 1 of the workflow is required. 

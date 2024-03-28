@@ -7,44 +7,44 @@
 
 #--------------------------------------------------------------------------------
 #### Obtain user defined parameters from Scripts/0_setup_params.txt ####
-wiff_dir=$(grep wiff_dir Scripts/0_setup_params.txt | cut -d '=' -f 2)
-cohort=$(grep cohort Scripts/0_setup_params.txt | cut -d '=' -f 2)
-insilico_lib_prefix=$(grep insilico_lib_prefix Scripts/0_setup_params.txt | cut -d '=' -f 2)
-spectral_lib=$(grep spectral_lib Scripts/0_setup_params.txt | cut -d '=' -f 2)
-fasta=$(grep fasta Scripts/0_setup_params.txt | cut -d '=' -f 2)
-subsample=$(grep subsample Scripts/0_setup_params.txt | cut -d '=' -f 2)
-percent=$(grep percent Scripts/0_setup_params.txt | cut -d '=' -f 2) 
-scan_window=$(grep scan_window Scripts/0_setup_params.txt | cut -d '=' -f 2)
-mass_acc=$(grep mass_acc Scripts/0_setup_params.txt | cut -d '=' -f 2)
-ms1_acc=$(grep ms1_acc Scripts/0_setup_params.txt | cut -d '=' -f 2) 
-missing=$(grep missing Scripts/0_setup_params.txt | cut -d '=' -f 2)
-extra_flags=$(grep extra_flags Scripts/0_setup_params.txt | cut -d '=' -f 2)
-project=$(grep project Scripts/0_setup_params.txt | cut -d '=' -f 2)
-lstorage=$(grep lstorage Scripts/0_setup_params.txt | cut -d '=' -f 2)
-wine_tar=$(grep wine_tar Scripts/0_setup_params.txt | cut -d '=' -f 2)
-wine_image=$(grep wine_image Scripts/0_setup_params.txt | cut -d '=' -f 2)
-diann_image=$(grep diann_image Scripts/0_setup_params.txt | cut -d '=' -f 2)
+wiff_dir=$(grep wiff_dir Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+cohort=$(grep cohort Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+insilico_lib_prefix=$(grep insilico_lib_prefix Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+spectral_lib=$(grep spectral_lib Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+fasta=$(grep fasta Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+subsample=$(grep subsample Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+percent=$(grep percent Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]') 
+scan_window=$(grep scan_window Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+mass_acc=$(grep mass_acc Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+ms1_acc=$(grep ms1_acc Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]') 
+missing=$(grep missing Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+extra_flags=$(grep extra_flags Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+project=$(grep project Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+lstorage=$(grep lstorage Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+wine_tar=$(grep wine_tar Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+wine_image=$(grep wine_image Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+diann_image=$(grep diann_image Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 
+printf "Reading parameters from Scripts/0_setup_params.txt:\n"
+echo - Wiff file input directory: $wiff_dir
+echo - Cohort name: $cohort
+echo - Insilico library prefix: $insilico_lib_prefix
+echo - Spectral library: $spectral_lib
+echo - Fasta: $fasta
+echo - Subsample: $subsample
+echo - Subsample percent: $percent
+echo - Scan window: $scan_window
+echo - Mass accuracy: $mass_acc
+echo - MS1 accuracy: $ms1_acc
+echo - Percent missingness filter: $missing
+echo - Extra DIA-NN flags: $extra_flags
+echo - NCI accounting code: $project
+echo - NCI filesystem paths: $lstorage
+echo - dot_wine.tar diann resource: $wine_tar
+echo - Wine singularity image file: $wine_image
+echo - DIA-NN Linux singularity image file: $diann_image
 
-echo Wiff file input directory: $wiff_dir
-echo Cohort name: $cohort
-echo Insilico library prefix: $insilico_lib_prefix
-echo Spectral library: $spectral_lib
-echo Fasta: $fasta
-echo Subsample: $subsample
-echo Subsample percent: $percent
-echo Scan window: $scan_window
-echo Mass accuracy: $mass_acc
-echo MS1 accuracy: $ms1_acc
-echo Percent missingness filter: $missing
-echo Extra DIA-NN flags: $extra_flags
-echo NCI accounting code: $project
-echo NCI filesystem paths: $lstorage
-echo dot_wine.tar diann resource: $wine_tar
-echo Wine singularity image file: $wine_image
-echo DIA-NN Linux singularity image file: $diann_image
-
-exit
+echo
 
 #--------------------------------------------------------------------------------
 #### Update workflow scripts with user defined parameters ####
@@ -52,6 +52,8 @@ exit
 
 # Make required workflow directories:
 mkdir -p Logs PBS_logs Inputs Raw_data
+
+printf "WIFF FILES:\nCreating symlinks for files in $wiff_dir to ./Raw_data\n\n"
 
 for wiff in `find -L ${wiff_dir} -name "*.wiff" -exec realpath -s {} \;`
 do
@@ -114,7 +116,7 @@ sed -i "s|^extra_flags=.*|extra_flags=\"${extra_flags}\"|g" $scripts_to_update
 
 if [[ $subsample == 'true' ]]
 then 
-	printf "SUBSAMPLING:\n\t* Selecting ${percent}%% of samples from ${wiff_dir} for subsampling\n"
+	printf "SUBSAMPLING:\n\t* Selecting ${percent}%% of samples from ${wiff_dir} for mass acc and window subsampling\n"
 	
 	# Run the subsample selector:
 	list=Inputs/2_preliminary_analysis_subsample.list
@@ -237,11 +239,11 @@ then
 	sed -i "s|^diann_image=.*|diann_image=${diann_image}|g" Scripts/1_generate_insilico_lib.pbs
 	
 	# insilico_lib_prefix  used to name the created library, since multiple fasta option precludes using fasta prefix as outfile name:.
-	sed -i "s|^insilico_library_prefix=.*|insilico_library_prefix=${insilico_lib_prefix}|g" Scripts/1_generate_insilico_lib.pbs
+	sed -i "s|^insilico_lib_prefix=.*|insilico_lib_prefix=${insilico_lib_prefix}|g" Scripts/1_generate_insilico_lib.pbs
 		
 	# update the library name in the downstream script:
 	scripts_to_update="Scripts/2_preliminary_analysis_make_input.sh Scripts/3_assemble_empirical_lib.pbs"
-	insilico_lib=1_insilico_library/${insilico_library_prefix}.predicted.speclib
+	insilico_lib=1_insilico_library/${insilico_lib_prefix}.predicted.speclib
 	sed -i "s|^spectral_lib=.*|spectral_lib=${insilico_lib}|g" $scripts_to_update
 	
 	if [[ $spectral_lib == 'false' ]]
