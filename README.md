@@ -265,7 +265,7 @@ Open `Scripts/0_setup_params.txt` with your preferred text editor. Edit the para
 
 - `missing` : integer 0-100. Optionally, filter away genes from the final unique genes matrix with fewer than N% samples called. The full unfiltered output is retained, the filter `Scripts/6_filter_missing.pl` creates new files with kept and discarded genes.
 
-- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:. Please add flags in exact notation as you would on DIA-NN command line, and encase in double quotes, example: `extra_flags="--int-removal 0 --peak-center --no-ifs-removal --scanning-swath"`.
+- `extra_flags` : Add any extra flags here. These will be applied to all steps. It's too complex to derive which of all the many DIA-NN flags apply to which steps and in which recommended combinations. If you find that you have added a flag here and you receive an error at part of the workflow due to a conflicting flag or clash or a flag not being permitted at a certain command, sorry, please fix manually, document, and rerun :blush:. Please add flags in exact notation as you would on DIA-NN command line, for example: `extra_flags=--int-removal 0 --peak-center --no-ifs-removal --scanning-swath`.
 
 - `project` : Your NCI project code. This will be added to the PBS scripts for accounting.
 
