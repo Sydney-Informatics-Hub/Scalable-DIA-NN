@@ -18,7 +18,7 @@ scan_window=$(grep scan_window Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr
 mass_acc=$(grep mass_acc Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 ms1_acc=$(grep ms1_acc Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]') 
 missing=$(grep missing Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
-extra_flags=$(grep extra_flags Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+extra_flags=$(grep extra_flags Scripts/0_setup_params.txt | cut -d '=' -f 2)
 project=$(grep project Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 lstorage=$(grep lstorage Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 wine_tar=$(grep wine_tar Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
