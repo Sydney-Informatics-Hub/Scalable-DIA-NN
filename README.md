@@ -30,7 +30,7 @@ Importantly, our workflow differs from quantms as it takes .wiff files as input,
 - Converting wiff to mzML requires 1-2 hours compute per sample and necessitates a double-up of raw data stored
 - We have found susbstantial [deleterious impacts on the results](https://github.com/vdemichev/DiaNN/issues/777) when processing the same samples from wiff or mzML format with identical run parameters
 
-To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive [available here](https://www.dropbox.com/scl/fo/9ztilfixb8ozqsjdd0yz9/h?rlkey=7s8oncyn7lclzckkwq0ql3ywd&dl=0). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.    
+To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive; see [Obtain required input files](#obtain-required-input-files) under [Detailed user guide](#detailed-user-guide). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.    
 
 </br>
 
@@ -104,7 +104,7 @@ The `scanning-swath` parameter should be applied if the data was generated as Sc
 - cohort-specific experimental library can be used for a library-based analysis, or user can run optional [step 1](#1-in-silico-library-generation-optional)
 
 ### DIA-NN resources
-PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem).We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. This archive (1.8 GB) and its md5 checksum file is available on Dropbox, and download details are provided under the [user guide](#detailed-user-guide).
+PC DIA-NN executable installed with Wine is required, and must be run with Wine from the local-to-node storage (will not work from Lustre filesystem). We have installed DIA-NN v 1.8.1 with [Wine 7.0.0](https://hub.docker.com/r/uvarc/wine) and copied the 'Clearcore' and 'Sciex' dll files (required for DIA-NN to read wiff input) into the DIA-NN install directory as per developer's guidelines. We have packaged this up into an archive named `dot_wine.tar`. Many thanks to [NCI](nci.org.au) for assistance with this. We have made this archive (1.8 GB) publicly available, and download details are provided under the [user guide](#detailed-user-guide).
 
 
 The `dot_wine.tar` DIA-NN installation requires Wine with Mono to run. We have successfully used the [uvarc container](https://hub.docker.com/r/uvarc/wine) and the [Proteowizard container](https://hub.docker.com/r/chambm/pwiz-skyline-i-agree-to-the-vendor-licenses). The Proteowizard container requires [per-user set-up](#pwiz_image_setup.md) to run on Gadi.
@@ -171,7 +171,7 @@ spectral_lib=false
 
 Step 1 of the workflow is required.
 
-#### 3. Belts-and-braces
+#### 3. Belt-and-braces
 
 To use *both* a proteome fasta and a cohort-specific experimentally generated spectral library to produce the insilico library, apply the following settings at step 0:
 
@@ -190,6 +190,25 @@ Library-free analysis is [recommended by DIA-NN developers](https://github.com/v
 
  **results tba**
 
+
+
+</details>
+
+
+<details>
+<summary><b>Test dataset</b></summary>
+    
+## Test dataset
+
+A test dataset containing four samples generated on SCIEX ZenoTOF is available. To obtain the test data:
+
+```
+wget https://sihbiopublic.blob.core.windows.net/scalable-diann/test_dataset.tar.gz
+wget https://sihbiopublic.blob.core.windows.net/scalable-diann/test_dataset.tar.gz.md5
+md5sum -c test_dataset.tar.gz.md5
+tar -zxvf test_dataset.tar.gz
+```
+This will unpack `mouse_proteome.fasta` and a directory `zenotof_wiff` containing the raw data. To run the full workflow using these inputs, the path to these files can then be supplied in the parameters setup file under `fasta` and `wiff_dir` parameters respectively, as per the [Detailed user guide](#detailed-user-guides) below. 
 
 
 </details>
@@ -225,8 +244,8 @@ mkdir diann_resources
 cd diann_resources
 
 # dot_wine.tar
-wget -O dot_wine.tar https://www.dropbox.com/scl/fi/4rq4mtdsu6sggw3oa57ji/dot_wine.tar?rlkey=i82v6c4o9aw3qomgtv9y2e4bv&dl=0
-wget -O dot_wine.tar.md5 https://www.dropbox.com/scl/fi/rqcnjfxzr5se9l40q09nv/dot_wine.tar.md5?rlkey=l5pvhxwp7to5qz3gwijdkvfcd&
+wget https://sihbiopublic.blob.core.windows.net/scalable-diann/dot_wine.tar
+wget https://sihbiopublic.blob.core.windows.net/scalable-diann/dot_wine.tar.md5
 md5sum -c dot_wine.tar.md5
 
 # Wine to run the PC version of DIA-NN:
