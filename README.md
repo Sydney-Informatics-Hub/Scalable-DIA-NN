@@ -35,7 +35,7 @@ To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by execu
 For more details on the workflow, see the topics below:
 
 - [Portability](./docs/portability.md)
-- [Compute usage](./docs/compute-usage-examples.md)
+- [Compute usage](./docs/compute-usage.md)
 - [CPU efficiency](./docs/cpu-efficiency.md)
 - [Parameters](./docs/parameters.md)
 - [Input requirements](./docs/input-requirements.md)
