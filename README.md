@@ -32,3 +32,16 @@ Importantly, our workflow differs from quantms as it takes .wiff files as input,
 
 To avoid the use of mzML, we use the Windows version of DIA-NN on Linux by executing with Wine (a PC emulator). We have installed Windows DIA-NN v. 1.8.1 with Wine 7 and packaged this into an archive; see [Obtain required input files](./docs/detailed-user-guide.md#obtain-required-input-files) under [Detailed user guide](./docs/detailed-user-guide.md). We developed this workflow on [NCI Gadi HPC](https://nci.org.au/our-systems/hpc-systems), which has a Lustre scratch filesystem. We found we were unable to execute PC DIA-NN with Wine when the installation folder was on Lustre, so the workflow copies the archive to the solid-state local-to-the-node storage for each task.
 
+For more details on the workflow, see the topics below:
+
+- [Portability](./docs/portability.md)
+- [Compute usage](./docs/compute-usage-examples.md)
+- [CPU efficiency](./docs/cpu-efficiency.md)
+- [Parameters](./docs/parameters.md)
+- [Input requirements](./docs/input-requirements.md)
+- [Overview of workflow steps](./docs/overview-of-workflow-steps.md)
+- [Library method options](./docs/library-method-options.md)
+- [Detailed user guide](./docs/detailed-user-guide.md)
+
+
+

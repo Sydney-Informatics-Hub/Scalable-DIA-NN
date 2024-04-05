@@ -2,7 +2,7 @@
 
 Thanks to [Matt Chambers](https://github.com/chambm), this [Proteowizard](https://proteowizard.sourceforge.io/) container includes Wine and Mono, as required to run the PC version of DIA-NN on a Linux platform. It can also convert wiff to mzML, however since this repository contains a workflow to run on wiff input, instructions for that are not included here. 
 
-Within this container, the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on NCI Gadi. You will need to rebuild the container for your NCI Gadi user ID on a compute you have sudo access to (e.g. your desktop or laptop). Annoyingly, **this must be done uniquely for every user**. See this stack overflow question for some more details `https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside`.
+Within this container, the `wine` folder is owned by 'root' and you cannot run singularity with `--fakeroot` on NCI Gadi. You will need to rebuild the container for your NCI Gadi user ID on a compute you have sudo access to (e.g. your desktop or laptop). Annoyingly, **this must be done uniquely for every user**. See [this stack overflow question](https://stackoverflow.com/questions/73328706/running-singularity-container-without-root-as-different-user-inside) for more details.
 
 Run the following command on Gadi to obtain your `uid`:
 ```
@@ -32,4 +32,4 @@ sudo singularity build pwiz.sif pwiz.build
 ```
 - Transfer `pwiz.sif` to Gadi (e.g. with scp/rsync...)
 
-This image will be used to run the PC version of DIA-NN that has been installed into a tar archive that is supplied with this repository. Other Wine images may work too (for example [this one](https://hub.docker.com/r/uvarc/wine)). 
+This image can be used to run the PC version of DIA-NN that has been installed into a tar archive, available [here](./detailed-user-guide.md/#obtain-required-input-files). 

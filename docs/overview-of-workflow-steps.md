@@ -4,7 +4,7 @@
 
 **0. Parameter setup:** provide parameters in a parameters text file and then run the setup script to update parameters to the whole workflow
 
-**1. Optional in-silico library creation:** see [Library method options](#library-method-options)
+**1. Optional in-silico library creation:** see [Library method options](./library-method-options.md)
 
 **2. Parallel initial quantification of samples**, using the in-silico library, experimentally-generated spectral library, or both 
 

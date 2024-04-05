@@ -8,4 +8,4 @@ If adapting this workflow to another compute environment, please refer to the ea
 
 A future release will see the workflow written in Nextflow. This imminent release will be portable. 
 
-Currently, it runs on SCIEX wiff files. We will test on other datasets TBA. 
+Currently, it runs on SCIEX wiff files. We will test on other raw data types (TBA). 

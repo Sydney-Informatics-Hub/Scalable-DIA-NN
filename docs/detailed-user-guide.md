@@ -48,9 +48,8 @@ Open `Scripts/0_setup_params.txt` with your preferred text editor. Edit the para
 
 - `cohort` : cohort name, to be used as prefix for output files. Eg 'muscle_libfree'. The number of samples will be auto-added to output file names. 
 
-- `insilico_lib_prefix` : desired library prefix name, or 'false'. eg 'mouse_proteome'. See [Library method options](#library-method-options).
-
-- `spectral_lib` : spectral library filepath or 'false'. See [Library method options](#library-method-options).
+- `insilico_lib_prefix` : desired library prefix name, or 'false'. eg 'mouse_proteome'. See [Library method options](./library-method-options.md)
+- `spectral_lib` : spectral library filepath or 'false'. See [Library method options](./library-method-options.md).
 
 - `fasta` : proteome fasta for the target species. Multiple fasta (for example, a proteome plus a contaminants fasta) can be provided as a single string separated by a comma, eg `fasta=/path/to/fasta1.fasta,/path/to/fasta2.fasta)`
 
@@ -72,11 +71,11 @@ Open `Scripts/0_setup_params.txt` with your preferred text editor. Edit the para
 
 - `lstorage` : Path to the storage locations required for the job. Must be in NCI-required syntax, ie ommitting leading slash, and no spaces, eg `"scratch/<project1>+scratch/<project2>+gdata<project3>"`. Note that your job will fail if read/write is required to a filesystem path not included. If you have symlinked any inputs, ensure the link source is included.
 
-- `wine_tar` : path to your [dot_wine.tar archive](#dia-nn-resource). This archive will be copied to `jobfs` for every job and sub-task. 
+- `wine_tar` : path to your [dot_wine.tar archive](#obtain-required-input-files). This archive will be copied to `jobfs` for every job and sub-task. 
 
-- `wine_image` : path to the [Wine plus Mono singularity container](#wine-singularity-container). 
+- `wine_image` : path to the [Wine singularity container](#obtain-required-input-files). 
 
-- `diann_image` : path to the DIA-NN v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`. Only required if you are running step 1, otherwise, leave blank.
+- `diann_image` : path to the [DIA-NN v 1.8.1 singularity container `diann_v1.8.1_cv1.sif`](#obtain-required-input-files). Only required if you are running step 1, otherwise, leave blank.
 
 
 Once these configurations have been made, save the parameters file, then run:
@@ -89,10 +88,9 @@ User-specified parameters will be updated to all scripts in the workflow. The on
 
 ### 1. In silico library generation (optional) 
 
-Step 1 is required for a library free or 'belts and braces' analysis, but not for library-based - see [Library method options](#library-method-options).
+Step 1 is required for a library free or 'belts and braces' analysis, but not for library-based - see [Library method options](./library-method-options.md).
 
 If performing library-based analysis against a cohort-specific experimentally generated spectral library, skip to [step 2](#2-preliminary-quantification-parallel).
-
 
 Begin by confirming the digest parameters you would like to apply by checking the DIA-NN [command-line reference](https://github.com/vdemichev/DiaNN?tab=readme-ov-file#command-line-reference). If you have a previous GUI DIA-NN library free run log which applied settings you want to use, you can extract these from the diann.exe command contained at the start of the log. 
 
@@ -162,7 +160,7 @@ This step performs preliminary quantification of all input samples in parallel, 
 
 If `subsample` was set to 'true' in the setup script, 10% (or whatever percentage user defined) of samples have been selected and printed to a list: `Inputs/2_preliminary_analysis_subsample.list`, and input configurations for these samples printed to `Inputs/2_preliminary_analysis.inputs`. 
 
-To run the step 2 subsampling, update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+To run the step 2 subsampling, update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node.
 
 Save the script, then submit:
 ```
@@ -193,7 +191,7 @@ This will report the averages derived from the subsamples, and update them to al
 
 If `subsample` was set to 'false' during setup: you have entered fixed values or 'auto' for scan window, mass acuracy and MS1 accuracy. In either case, or if you have just completed the 'with subsampling' section above, this step is the same. 
 
-Update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+Update resources in `Scripts/2_preliminary_analysis_run_parallel.pbs`, allowing 12 CPU, 48 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node.  
 
 Save the script, then submit:
 ```
@@ -232,7 +230,7 @@ Example resource usage:
 
 - 146 scanning SWATH samples, 12 CPU 'normal' queue: 14 minutes, 19 GB RAM
 - 1530 scanning SWATH samples, 48 CPU 'normal' queue: 5 hours 35 minutes, 120 GB RAM
-- 1381 non-scanning SWATH samples, 48 CPU 'normal' queue: 8  minutes, 14 GB RAM
+- 1381 Zeno SWATH samples, 48 CPU 'normal' queue: 8  minutes, 14 GB RAM
 
 As cohort size increases for large scanning SWATH samples, additional CPU are not particularly helpful, but additional RAM and a lot of additional walltime are required. 
 
@@ -300,7 +298,7 @@ After running this script, run step 4 as usual.
 
 #### Run step 4 on all samples
 
-Update resources in `Scripts/4_individual_final_analysis_run_parallel.pbs`, allowing 4 CPU, 16 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. When using >= 1 node, request 190 GB RAM per node and 400 GB jobfs per node. 
+Update resources in `Scripts/4_individual_final_analysis_run_parallel.pbs`, allowing 4 CPU, 16 GB RAM and 10 GB jobfs per sample. Gadi multi-node jobs **MUST REQUEST WHOLE NODES** so please round up to the nearest whole node. 
 
 Save the script, then submit:
 ```
@@ -392,6 +390,4 @@ This will create 2 additional files in the `5_summarise` output directory:
 - `\<cohort_name\>_\<number-of-samples\>s.filter-\<N\>-percent.discarded_genes.txt`
 
 The filtered unique genes matrix has the same format as the standard DIA-ANN unique genes matrix. The discarded genes file is a 2-column TSV with gene name and % of samples with no value for that gene. 
-
-</details>
 
