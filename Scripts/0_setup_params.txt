@@ -1,4 +1,5 @@
-wiff_dir=
+dia_dir=
+dia_suffix=
 cohort=
 insilico_lib_prefix=
 spectral_lib=

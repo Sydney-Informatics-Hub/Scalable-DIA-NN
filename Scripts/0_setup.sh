@@ -7,7 +7,7 @@
 
 #--------------------------------------------------------------------------------
 #### Obtain user defined parameters from Scripts/0_setup_params.txt ####
-wiff_dir=$(grep wiff_dir Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+dia_dir=$(grep dia_dir Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 cohort=$(grep cohort Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 insilico_lib_prefix=$(grep insilico_lib_prefix Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 spectral_lib=$(grep spectral_lib Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
@@ -26,7 +26,8 @@ wine_image=$(grep wine_image Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -
 diann_image=$(grep diann_image Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 
 printf "Reading parameters from Scripts/0_setup_params.txt:\n"
-echo - Wiff file input directory: $wiff_dir
+echo - DIA raw data input directory: $dia_dir
+echo - DIA raw data has file suffix: $dia_suffix
 echo - Cohort name: $cohort
 echo - Insilico library prefix: $insilico_lib_prefix
 echo - Spectral library: $spectral_lib
@@ -53,21 +54,26 @@ echo
 # Make required workflow directories:
 mkdir -p Logs PBS_logs Inputs Raw_data
 
-printf "WIFF FILES:\nCreating symlinks for files in $wiff_dir to ./Raw_data\n\n"
+printf "DIA RAW FILES:\nCreating symlinks for files in $dia_dir to ./Raw_data\n\n"
 
-for wiff in `find -L ${wiff_dir} -name "*.wiff" -exec realpath -s {} \;`
+for dia_file in `find -L ${dia_dir} -name "*.${dia_suffix}" -exec realpath -s {} \;`
 do
-	wiff_base=$(basename $wiff)
-	if [ ! -L Raw_data/${wiff_base} ]
+	dia_base=$(basename ${dia_file})
+	if [ ! -L Raw_data/${dia_base} ]
 	then
-		ln -s $wiff Raw_data/
+		ln -s ${dia_file} Raw_data/
 	fi
-	if [ ! -L Raw_data/${wiff_base}.scan ]
+	
+	if [ $dia_suffix == wiff ]
 	then
-		ln -s ${wiff}.scan Raw_data/
-	fi
+	
+		if [ ! -L Raw_data/${dia_base}.scan ]
+		then
+			ln -s ${dia_file}.scan Raw_data/
+		fi
 done
-n=$(ls -1 Raw_data/*wiff | wc -l)
+n=$(ls -1 Raw_data/*${dia_suffix} | wc -l)
+
 
 #--------------------------------------------------------------------------------
 # PBS stuff - accounting, storage and logs
@@ -116,7 +122,7 @@ sed -i "s|^extra_flags=.*|extra_flags=\"${extra_flags}\"|g" $scripts_to_update
 
 if [[ $subsample == 'true' ]]
 then 
-	printf "SUBSAMPLING:\n\t* Selecting ${percent}%% of samples from ${wiff_dir} for mass acc and window subsampling\n"
+	printf "SUBSAMPLING:\n\t* Selecting ${percent}%% of samples from ${dia_dir} for mass acc and window subsampling\n"
 	
 	# Run the subsample selector:
 	list=Inputs/2_preliminary_analysis_subsample.list
