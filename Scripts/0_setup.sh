@@ -8,6 +8,7 @@
 #--------------------------------------------------------------------------------
 #### Obtain user defined parameters from Scripts/0_setup_params.txt ####
 dia_dir=$(grep dia_dir Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
+dia_suffix=$(grep dia_suffix Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]' | sed 's/^\.//')
 cohort=$(grep cohort Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 insilico_lib_prefix=$(grep insilico_lib_prefix Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
 spectral_lib=$(grep spectral_lib Scripts/0_setup_params.txt | cut -d '=' -f 2 | tr -d '[:space:]')
@@ -48,8 +49,11 @@ echo - DIA-NN Linux singularity image file: $diann_image
 echo
 
 #--------------------------------------------------------------------------------
-#### Update workflow scripts with user defined parameters ####
 
+#### The below commands update workflow scripts with user defined parameters ####
+
+#--------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------
 
 # Make required workflow directories:
 mkdir -p Logs PBS_logs Inputs Raw_data
@@ -71,9 +75,15 @@ do
 		then
 			ln -s ${dia_file}.scan Raw_data/
 		fi
+	fi
 done
 n=$(ls -1 Raw_data/*${dia_suffix} | wc -l)
 
+#--------------------------------------------------------------------------------
+# Provide dia suffix to steps 2 and 4 scripts
+
+scripts_to_update="Scripts/2_preliminary_analysis_make_input.sh Scripts/2_preliminary_analysis_check.sh Scripts/2_select_subsamples.pl Scripts/4_individual_final_analysis_make_input.sh Scripts/4_individual_final_analysis_check.sh"
+sed -i "s|^dia_suffix=.*|dia_suffix=${dia_suffix}|g" $scripts_to_update
 
 #--------------------------------------------------------------------------------
 # PBS stuff - accounting, storage and logs
@@ -126,7 +136,7 @@ then
 	
 	# Run the subsample selector:
 	list=Inputs/2_preliminary_analysis_subsample.list
-	subsampled=$(perl Scripts/2_select_subsamples.pl $percent $n $list)
+	subsampled=$(perl Scripts/2_select_subsamples.pl $percent $n $list $dia_suffix)
 	printf "\t* ${subsampled} samples from total cohort of $n written to ${list}\n\n";
 	
 	# Make the inputs file for subsamples:
@@ -200,9 +210,7 @@ sed -i "s|^ms1_acc=.*|ms1_acc=${ms1_acc}|g" $scripts_to_update
 
 
 #--------------------------------------------------------------------------------
-# Update fasta (all steps):
-### update 21/12/23: added steps 2 and 3 to the list of scripts with fasta
-### it makes no sense to leave them off... i cant find anything in ~ 70 pages of notes as to why  
+# Update fasta to all scripts: 
 
 # first, split out multiple fastas:
 if [[ $fasta =~ ',' ]]
@@ -226,11 +234,10 @@ sed -i "s|^fasta_var_string=.*|fasta_var_string=\"${fasta_var_string}\"|g" $scri
 
 # For 'library free', user has entered 'auto' at spectral_lib, and in this case, a fasta digest (step 1) needs to occur
 # For 'library based', user has entered the filepath of an experimentally generated library file
-# Can DIA-NN accept TWO LIBS? Must test this before proceeding! --> yes it can , but you get a warning that
-# its experimental, so not pursuing that for now. 
+# DIA-NN can accept two spectral libraries, but you get a warning that its experimental, so not pursuing that for now. 
 
 
-# script needs to accomodate 3 options:
+# Workflow accomodates 3 options:
 # - 1) use an experimental lib, no digest required
 # - 2) perform a fasta digest and use that lib
 # - 3) perform a fasta digest on a fasta AND an experimental lib 
@@ -332,7 +339,7 @@ sed -i "s|^my \$missing[ ]=.*|my \$missing = ${missing};|g" $scripts_to_update
 #---------------------------------------
 # Get wine running stuff
 
-# Update dot_wine tar location, wine singularity image file, and input dir with wiff files, for all steps:
+# Update dot_wine tar location, wine singularity image file, and input dir with raw dia files, for all steps:
 scripts_to_update="Scripts/1_generate_insilico_lib.pbs Scripts/2_preliminary_analysis_make_input.sh Scripts/3_assemble_empirical_lib.pbs Scripts/4_individual_final_analysis_make_input.sh Scripts/5_summarise.pbs"
 sed -i "s|^wine_tar=.*|wine_tar=${wine_tar}|g" $scripts_to_update
 sed -i "s|^wine_image=.*|wine_image=${wine_image}|g" $scripts_to_update

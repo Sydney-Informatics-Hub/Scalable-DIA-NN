@@ -7,7 +7,7 @@
 
 #---------------------------- 
 
-#PBS -P <project>
+#PBS -P xh27
 #PBS -N step3
 #PBS -l ncpus=48
 #PBS -l mem=190GB
@@ -16,9 +16,9 @@
 #PBS -q normal
 #PBS -W umask=022
 #PBS -l wd
-#PBS -o ./PBS_logs/step3_<cohort_name>_<N>s.o
-#PBS -e ./PBS_logs/step3_<cohort_name>_<N>s.e
-#PBS -l storage=<lstorage>
+#PBS -o ./PBS_logs/step3_PXD050996_71s.o
+#PBS -e ./PBS_logs/step3_PXD050996_71s.e
+#PBS -l storage=scratch/er01+gdata/er01
 
 
 module load singularity
@@ -30,7 +30,6 @@ set -e
 #---------------------------- 
 # I/O (hard-coded, please do not change) 
 
-wiff_dir=Raw_data
 temp=2_quant # output of step 2
 outdir=3_empirical_library
 
@@ -41,18 +40,18 @@ mkdir -p ${outdir}
 #---------------------------- 
 # Inputs auto-updated when the setup script is run:
 
-wine_tar=<path_to_dot_wine.tar>
-wine_image=<path_to_wine_sif>
+wine_tar=/scratch/er01/PIPE-3050-DIA-NN/thermo_raw/diann_resources/dot_wine_DIANN_SCIEX_THERMO.tar
+wine_image=/scratch/er01/PIPE-3050-DIA-NN/thermo_raw/diann_resources/wine_7.0.0.sif
 
 # Input library file (non-cohort specific, either user-supplied or created by optional step 1)
-spectral_lib=<speclib>
+spectral_lib=1_insilico_library/human_UP000005640_9606.predicted.speclib
 
 # List of fasta files as string variable 
-fasta_var_string=" "
+fasta_var_string="--fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606.fasta --fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606_additional.fasta "
 
 # Output library file, created from sample data, fasta and sample data --> cohort specific
 # This variable holds the file name, full path is added at the diann run command 
-empirical_lib=<emp_lib>
+empirical_lib=PXD050996_71s.empirical
 
 
 #---------------------------- 
@@ -60,9 +59,9 @@ empirical_lib=<emp_lib>
 #---------------------------- 
 # Establish scan window, mass accuracy and MS1 mass accuracy parameters:
 
-scan_window=<value>
-mass_acc=<value>
-ms1_acc=<value>
+scan_window=auto
+mass_acc=auto
+ms1_acc=0
 
 ### Add the scan window and 2 mass acc params into one string: 
 if [[ $scan_window  =~ ^[0-9]+$ ]]
@@ -111,7 +110,7 @@ singularity exec \
         ${wine_image} \
         wine \
         ${diann_exe} \
-	--dir ${wiff_dir} \
+	--dir Raw_data \
         --lib ${spectral_lib} \
         --threads ${PBS_NCPUS} \
         --out ${outdir}/${empirical_lib}.report \

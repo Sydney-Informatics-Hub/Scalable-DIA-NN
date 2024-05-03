@@ -7,9 +7,9 @@ use warnings;
 use strict;
 
 
-my $cohort = '<cohort_name>';
-my $n = <N>;
-my $percent = <PC>;
+my $cohort = 'PXD050996';
+my $n = 71;
+my $percent = 10;
  
 
 my $logs = 'Logs/2_preliminary_analysis/';

@@ -6,7 +6,7 @@
 
 #---------------------------- 
 
-#PBS -P <project>
+#PBS -P xh27
 #PBS -N step1
 #PBS -l ncpus=24
 #PBS -l walltime=01:20:00
@@ -15,7 +15,7 @@
 #PBS -l wd
 #PBS -o ./PBS_logs/step1_gen_insilico_lib.o
 #PBS -e ./PBS_logs/step1_gen_insilico_lib.e
-#PBS -l storage=<lstorage>
+#PBS -l storage=scratch/er01+gdata/er01
 
 
 module load singularity
@@ -37,13 +37,13 @@ mkdir -p ${out_dir}
 # Inputs auto-updated when the setup script is run:
 
 # DIA-NN resources:
-diann_image=<path_to_diann_v1.8.1_cv1.sif>
+diann_image=/scratch/er01/PIPE-3050-DIA-NN/thermo_raw/diann_resources/diann_v1.8.1_cv1.sif
 
 # Proteome fasta for study species. Must have .fasta or .fa suffix
-fasta_var_string=" "
+fasta_var_string="--fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606.fasta --fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606_additional.fasta "
 
 # insilico library prefix. Since more than one fasta can be provided, can't use fasta prefix. User must specify. 
-insilico_lib_prefix=<prefix>
+insilico_lib_prefix=human_UP000005640_9606
 
 #----------------------------
 

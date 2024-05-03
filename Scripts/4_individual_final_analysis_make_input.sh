@@ -11,21 +11,21 @@
 #---------------------------- 
 # Inputs auto-updated when the setup script is run:
 
-wine_tar=<dot_wine.tar>
-wine_image=<wine_sif>
-empirical_lib=<empirical_lib>
-fasta_var_string=" "
+dia_suffix=raw
+wine_tar=/scratch/er01/PIPE-3050-DIA-NN/thermo_raw/diann_resources/dot_wine_DIANN_SCIEX_THERMO.tar
+wine_image=/scratch/er01/PIPE-3050-DIA-NN/thermo_raw/diann_resources/wine_7.0.0.sif
+empirical_lib=PXD050996_71s.empirical
+fasta_var_string="--fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606.fasta --fasta /scratch/er01/PIPE-3050-DIA-NN/thermo_raw/human_proteome/UP000005640_9606_additional.fasta "
 
-scan_window=<value>
-mass_acc=<value>
-ms1_acc=<value>
+scan_window=auto
+mass_acc=auto
+ms1_acc=0
 
 #---------------------------- 
 
 #---------------------------- 
 # I/O (hard-coded, please do not change) 
 
-wiff_dir=Raw_data
 temp=4_quant # output quant files
 libdir=3_empirical_library # lib made at step 3
 inputs=Inputs/4_individual_final_analysis.inputs
@@ -40,9 +40,9 @@ rm -rf ${inputs}
 #---------------------------- 
 # Create parallel inputs file:
 
-for wiff in `ls ${wiff_dir}/*wiff`
+for file in `ls Raw_data/*.${dia_suffix}`
 do
-	echo "${wine_tar},${wine_image},${empirical_lib},${wiff},${temp},${log_dir},${scan_window},${mass_acc},${ms1_acc},\"${fasta_var_string}\"" >> ${inputs}
+	echo "${wine_tar},${wine_image},${empirical_lib},${file},${temp},${log_dir},${scan_window},${mass_acc},${ms1_acc},\"${fasta_var_string}\",${dia_suffix}" >> ${inputs}
 done
 
 printf "Inputs for `wc -l < ${inputs}` samples written to ${inputs}\n"

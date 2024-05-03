@@ -8,15 +8,16 @@
 wine_tar=`echo $1 | cut -d ',' -f 1`
 wine_image=`echo $1 | cut -d ',' -f 2`
 spectral_lib=`echo $1 | cut -d ',' -f 3`
-wiff=`echo $1 | cut -d ',' -f 4`
+raw_dia_file=`echo $1 | cut -d ',' -f 4`
 temp=`echo $1 | cut -d ',' -f 5`
 logDir=`echo $1 | cut -d ',' -f 6`
 scan_window=`echo $1 | cut -d ',' -f 7`
 mass_acc=`echo $1 | cut -d ',' -f 8`
 ms1_acc=`echo $1 | cut -d ',' -f 9`
 fasta_var_string=`echo $1 | cut -d ',' -f 10`
+dia_suffix=`echo $1 | cut -d ',' -f 11`
 
-sampleID=$(basename ${wiff%.wiff})
+sampleID=$(basename ${raw_dia_file%.${dia_suffix}})
 
 
 #---------------------------- 
@@ -80,7 +81,7 @@ singularity exec \
         ${diann_exe} \
         --verbose 4 \
         --lib ${spectral_lib} \
-        --f ${wiff} \
+        --f ${raw_dia_file} \
 	${fasta_var_string} \
         --threads ${NCPUS} \
         --temp ${temp} \

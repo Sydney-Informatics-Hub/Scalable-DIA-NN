@@ -9,7 +9,7 @@
 
 #---------------------------- 
 
-#PBS -P <project>
+#PBS -P xh27
 #PBS -N step4
 #PBS -l ncpus=<NCPUS>
 #PBS -l mem=<MEM>GB
@@ -18,9 +18,9 @@
 #PBS -q normal
 #PBS -W umask=022
 #PBS -l wd
-#PBS -o ./PBS_logs/step4_<cohort_name>_<N>s.o
-#PBS -e ./PBS_logs/step4_<cohort_name>_<N>s.o
-#PBS -l storage=<lstorage>
+#PBS -o ./PBS_logs/step4_PXD050996_71s.o
+#PBS -e ./PBS_logs/step4_PXD050996_71s.e
+#PBS -l storage=scratch/er01+gdata/er01
 
 
 module load nci-parallel/1.0.0a

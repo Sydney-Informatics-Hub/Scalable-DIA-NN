@@ -10,13 +10,14 @@
 #---------------------------- 
 # Auto-updated from setup script:
 
-subsample=<value>
+dia_suffix=raw
+subsample=true
 
 # Use of ls rather than direct variable so that the same 
 # check script can be used for subsample or full step 2 run
 # Assumption: that the log to query is the latest created
 
-log_prefix=<prefix>
+log_prefix=step2_PXD050996
 
 o_log=$(ls -lhtr PBS_logs/$log_prefix*.o | tail -1 | awk '{print $9}')
 e_log=$(ls -lhtr PBS_logs/$log_prefix*.e | tail -1 | awk '{print $9}')
@@ -77,7 +78,7 @@ do
 	task_exit=$( grep "$TASK" $e_log | grep "exited with status 0")
 	if ! [[ $task_exit ]]
 	then
-		sample=$( echo $TASK | cut -d ',' -f 4 | xargs basename | sed 's/\.wiff//')
+		sample=$( echo $TASK | cut -d ',' -f 4 | xargs basename | sed 's/\.${dia_suffix}//')
 		printf "\tERROR: non-zero exit status for ${sample} task\n"
 		failed_samples+=(${sample})
 	fi
@@ -97,10 +98,10 @@ fi
 printf "Checking quant, report, log and stats outputs:"
 while read LINE
 do
-	wiff=$(echo $LINE | cut -d ',' -f 4)
-	sample=$(basename ${wiff%.wiff})
+	raw_dia_file=$(echo $LINE | cut -d ',' -f 4)
+	sample=$(basename ${raw_dia_file%.${dia_suffix}})
 		
-	quant=${quant_dir}/$( echo $wiff | sed 's|/|_|g' | sed 's|\.wiff|\_wiff\.quant|')
+	quant=${quant_dir}/$( echo ${raw_dia_file} | sed 's|/|_|g' | sed 's|\.${dia_suffix}|\_${dia_suffix}\.quant|')
 	oe_log=${log_dir}/${sample}.oe
 	report=${log_dir}/${sample}.report.tsv
 	stats=${log_dir}/${sample}.report.stats.tsv
